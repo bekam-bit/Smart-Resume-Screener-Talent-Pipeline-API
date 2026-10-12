@@ -1,0 +1,33 @@
+{
+  "name": "smart-resume-screener-talent-pipeline-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API for an explainable, recruiter-controlled talent pipeline.",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "node node_modules/prisma/build/index.js generate",
+    "db:validate": "node node_modules/prisma/build/index.js validate",
+    "db:push": "node node_modules/prisma/build/index.js db push",
+    "db:migrate": "node node_modules/prisma/build/index.js migrate dev",
+    "db:studio": "node node_modules/prisma/build/index.js studio",
+    "db:seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"
+  },
+  "prisma": { "seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts" },
+  "dependencies": {
+    "@prisma/client": "^6.17.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2",
+    "prisma": "^6.17.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

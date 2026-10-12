@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // uncomment next line if you use Prisma <5.10
+  // directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  REMOVED
+}
+
+enum OrganizationRole {
+  ADMIN
+  RECRUITER
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  CLOSED
+}
+
+enum RequirementType {
+  REQUIRED
+  PREFERRED
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  SCREENING
+  IN_REVIEW
+  SHORTLISTED
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ResumeParseStatus {
+  QUEUED
+  PROCESSING
+  COMPLETE
+  FAILED
+}
+
+enum ScreeningStatus {
+  QUEUED
+  PROCESSING
+  COMPLETE
+  FAILED
+}
+
+model User {
+  id                String                   @id @default(uuid()) @db.Uuid
+  email             String                   @unique
+  passwordHash      String?
+  emailVerifiedAt   DateTime?
+  accountStatus     AccountStatus            @default(ACTIVE)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  candidateProfile  CandidateProfile?
+  memberships       OrganizationMembership[]
+  refreshSessions   RefreshSession[]
+  resumes           Resume[]
+  applications      Application[]
+  applicationEvents ApplicationEvent[]       @relation("EventActor")
+  recruiterNotes    RecruiterNote[]
+  auditLogs         AuditLog[]
+}
+
+model CandidateProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @db.Uuid
+  name         String
+  phone        String?
+  portfolioUrl String?
+  location     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Organization {
+  id           String                   @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String                   @unique
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  memberships  OrganizationMembership[]
+  jobs         Job[]
+  auditLogs    AuditLog[]
+}
+
+model OrganizationMembership {
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @db.Uuid
+  organizationId String             @db.Uuid
+  role           OrganizationRole   @default(RECRUITER)
+  status         MembershipStatus   @default(INVITED)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User               @relation(fields: [userId], references: [id])
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, status])
+}
+
+model Job {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  title          String
+  description    String
+  location       String?
+  remotePolicy   String?
+  employmentType String?
+  status         JobStatus       @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  requirements   JobRequirement[]
+  applications   Application[]
+
+  @@index([organizationId, status, publishedAt])
+}
+
+model JobRequirement {
+  id          String          @id @default(uuid()) @db.Uuid
+  jobId       String          @db.Uuid
+  name        String
+  description String?
+  type        RequirementType
+  weight      Int?
+  createdAt   DateTime        @default(now())
+  job         Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, type])
+}
+
+model Resume {
+  id           String            @id @default(uuid()) @db.Uuid
+  candidateId  String            @db.Uuid
+  storageKey   String            @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  checksum     String?
+  parseStatus  ResumeParseStatus @default(QUEUED)
+  createdAt    DateTime          @default(now())
+  candidate    User              @relation(fields: [candidateId], references: [id])
+  profile      ResumeProfile?
+  applications Application[]
+
+  @@index([candidateId, createdAt])
+}
+
+model ResumeProfile {
+  id               String   @id @default(uuid()) @db.Uuid
+  resumeId         String   @unique @db.Uuid
+  extractedData    Json
+  parserVersion    String
+  extractionStatus String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  resume           Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id            String            @id @default(uuid()) @db.Uuid
+  candidateId   String            @db.Uuid
+  jobId         String            @db.Uuid
+  resumeId      String            @db.Uuid
+  status        ApplicationStatus @default(SUBMITTED)
+  coverLetter   String?
+  submittedAt   DateTime          @default(now())
+  withdrawnAt   DateTime?
+  candidate     User              @relation(fields: [candidateId], references: [id])
+  job           Job               @relation(fields: [jobId], references: [id])
+  resume        Resume            @relation(fields: [resumeId], references: [id])
+  screeningRuns ScreeningRun[]
+  events        ApplicationEvent[]
+  notes         RecruiterNote[]
+
+  @@index([jobId, status, submittedAt])
+  @@index([candidateId, submittedAt])
+  @@unique([candidateId, jobId, resumeId])
+}
+
+model ScreeningRun {
+  id            String          @id @default(uuid()) @db.Uuid
+  applicationId String          @db.Uuid
+  status        ScreeningStatus @default(QUEUED)
+  score         Decimal?        @db.Decimal(5, 2)
+  scoreBreakdown Json?
+  evidence      Json?
+  provider      String?
+  model         String?
+  promptVersion String?
+  errorCode     String?
+  createdAt     DateTime        @default(now())
+  finishedAt    DateTime?
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+}
+
+model ApplicationEvent {
+  id               String            @id @default(uuid()) @db.Uuid
+  applicationId    String            @db.Uuid
+  actorUserId      String?           @db.Uuid
+  fromStatus       ApplicationStatus?
+  toStatus         ApplicationStatus
+  reason           String?
+  candidateVisible Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  application      Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor            User?             @relation("EventActor", fields: [actorUserId], references: [id])
+
+  @@index([applicationId, createdAt])
+}
+
+model RecruiterNote {
+  id            String      @id @default(uuid()) @db.Uuid
+  applicationId String      @db.Uuid
+  authorId      String      @db.Uuid
+  body          String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author        User        @relation(fields: [authorId], references: [id])
+}
+
+model RefreshSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  familyId   String    @db.Uuid
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+}
+
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  actorId        String?       @db.Uuid
+  organizationId String?       @db.Uuid
+  action         String
+  resourceType   String
+  resourceId     String
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  actor          User?         @relation(fields: [actorId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([resourceType, resourceId])
+}
