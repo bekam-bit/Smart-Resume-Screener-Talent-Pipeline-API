@@ -1,5 +1,6 @@
 import express from "express";
 import { env } from "./config/env.js";
+import { errorHandler } from "./middlewares/error-handler.js";
 import { healthRouter } from "./routes/health.routes.js";
 
 export const app = express();
@@ -14,3 +15,5 @@ app.use((_request, response) => {
     error: { code: "NOT_FOUND", message: "Route not found" }
   });
 });
+
+app.use(errorHandler);
