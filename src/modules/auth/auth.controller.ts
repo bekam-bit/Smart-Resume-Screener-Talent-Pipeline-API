@@ -1,14 +1,14 @@
 import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
 import { AppError } from "../../utils/app-error.js";
+import { parseOrThrow } from "../../middlewares/validate-request.js";
 import { clearRefreshCookie, readRefreshToken, setRefreshCookie } from "./auth.cookies.js";
 import { login, register, requestPasswordReset, resetPassword, resendVerificationEmail, revokeAllSessions, revokeRefreshToken, rotateRefreshToken, verifyEmail } from "./auth.service.js";
 import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, tokenSchema } from "./auth.schemas.js";
 
 export const registerController = async (request: Request, response: Response) => {
-  const result = registerSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  const resultData = await register(result.data);
+  const data = parseOrThrow(registerSchema, request.body);
+  const resultData = await register(data);
   response.status(201).json({
     user: resultData.user,
     verificationRequired: true,
@@ -17,9 +17,7 @@ export const registerController = async (request: Request, response: Response) =
 };
 
 export const loginController = async (request: Request, response: Response) => {
-  const result = loginSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  const session = await login(result.data);
+  const session = await login(parseOrThrow(loginSchema, request.body));
   setRefreshCookie(response, session.refreshToken);
   response.json({ user: session.user, accessToken: session.accessToken });
 };
@@ -47,16 +45,12 @@ export const logoutAllController = async (request: Request, response: Response) 
 };
 
 export const verifyEmailController = async (request: Request, response: Response) => {
-  const result = tokenSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  await verifyEmail(result.data);
+  await verifyEmail(parseOrThrow(tokenSchema, request.body));
   response.json({ message: "Email verified" });
 };
 
 export const forgotPasswordController = async (request: Request, response: Response) => {
-  const result = forgotPasswordSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  const token = await requestPasswordReset(result.data.email);
+  const token = await requestPasswordReset(parseOrThrow(forgotPasswordSchema, request.body).email);
   response.json({
     message: "If an account exists, password reset instructions will be sent",
     ...(token && !env.RESEND_API_KEY && env.NODE_ENV !== "production" ? { resetToken: token } : {})
@@ -64,15 +58,11 @@ export const forgotPasswordController = async (request: Request, response: Respo
 };
 
 export const resetPasswordController = async (request: Request, response: Response) => {
-  const result = resetPasswordSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  await resetPassword(result.data);
+  await resetPassword(parseOrThrow(resetPasswordSchema, request.body));
   response.json({ message: "Password reset" });
 };
 
 export const resendVerificationController = async (request: Request, response: Response) => {
-  const result = forgotPasswordSchema.safeParse(request.body);
-  if (!result.success) throw new AppError("VALIDATION_ERROR", "Invalid request payload", 400);
-  await resendVerificationEmail(result.data.email);
+  await resendVerificationEmail(parseOrThrow(forgotPasswordSchema, request.body).email);
   response.json({ message: "If your account exists and is unverified, a new verification email has been sent" });
 };

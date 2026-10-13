@@ -26,6 +26,27 @@ describe("health endpoints", () => {
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("returns field-level validation details and a request id", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ email: "invalid", password: "short", name: "" });
+
+    expect(response.status).toBe(400);
+    expect(Array.isArray(response.body.error.details)).toBe(true);
+    expect(response.body.error.details.map((detail: { field: string }) => detail.field)).toContain("email");
+    expect(typeof response.body.error.requestId).toBe("string");
+    expect(response.headers["x-request-id"]).toBe(response.body.error.requestId);
+  });
+
+  it("echoes a caller supplied request id", async () => {
+    const response = await request(app)
+      .get("/api/v1/health/live")
+      .set("x-request-id", "req-from-client-123");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["x-request-id"]).toBe("req-from-client-123");
+  });
+
   it("rejects organization job access without authentication", async () => {
     const response = await request(app)
       .get("/api/v1/organizations/00000000-0000-0000-0000-000000000000/jobs");

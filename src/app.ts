@@ -5,8 +5,11 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middlewares/error-handler.js";
+import { requestContext } from "./middlewares/request-context.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { jobsRouter } from "./modules/jobs/jobs.routes.js";
+import { organizationsRouter } from "./modules/organizations/organizations.routes.js";
+import { profileRouter } from "./modules/profile/profile.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +18,7 @@ export const app = express();
 const allowedOrigins = env.FRONTEND_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean);
 
 app.disable("x-powered-by");
+app.use(requestContext);
 // CSP disabled in dev so the inline-script demo page works without a nonce pipeline
 app.use(helmet({ contentSecurityPolicy: env.NODE_ENV !== "development" }));
 app.use(cors({ origin: allowedOrigins, credentials: true }));
@@ -27,6 +31,8 @@ if (env.NODE_ENV === "development") {
 
 app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, authRouter);
+app.use(`${env.API_PREFIX}/organizations`, organizationsRouter);
+app.use(`${env.API_PREFIX}/me`, profileRouter);
 app.use(`${env.API_PREFIX}`, jobsRouter);
 
 app.use((_request, response) => {

@@ -19,7 +19,20 @@ const envSchema = z.object({
   FRONTEND_ORIGINS: z.string(),
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: emailFromSchema,
-  FRONTEND_APP_URL: z.string()
+  FRONTEND_APP_URL: z.string(),
+
+  // ── Object storage (Neon-compatible S3 endpoint) ──
+  // The AWS SDK also reads these from the environment natively; declared here
+  // so their presence/shape is validated at boot and reused by the provider.
+  AWS_ENDPOINT_URL_S3: z.string().optional(),
+  AWS_REGION: z.string().default("us-east-1"),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET: z.string().default("resume-assets"),
+  S3_PRESIGN_EXPIRY_SECONDS: z.coerce.number().int().positive().default(300),
+
+  // ── Resume uploads ──
+  MAX_RESUME_SIZE_BYTES: z.coerce.number().int().positive().default(5_242_880)
 });
 
 export const env = envSchema.parse(process.env);

@@ -36,7 +36,7 @@ const issueSession = async (user: { id: string; email: string; emailVerifiedAt: 
   };
 };
 
-const createAuthToken = async (userId: string, purpose: AuthTokenPurpose) => {
+export const createAuthToken = async (userId: string, purpose: AuthTokenPurpose) => {
   const token = createOneTimeToken();
   await withDbRetry(() =>
     prisma.authToken.create({

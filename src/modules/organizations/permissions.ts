@@ -2,6 +2,7 @@ import type { OrganizationRole } from "@prisma/client";
 
 export type OrganizationPermission =
   | "organization:read"
+  | "organization:update"
   | "organization:members:manage"
   | "job:read"
   | "job:create"
@@ -16,6 +17,7 @@ export type OrganizationPermission =
 const rolePermissions: Record<OrganizationRole, readonly OrganizationPermission[]> = {
   ADMIN: [
     "organization:read",
+    "organization:update",
     "organization:members:manage",
     "job:read",
     "job:create",
