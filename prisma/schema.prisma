@@ -64,6 +64,11 @@ enum ScreeningStatus {
   FAILED
 }
 
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 model User {
   id                String                   @id @default(uuid()) @db.Uuid
   email             String                   @unique
@@ -80,6 +85,20 @@ model User {
   applicationEvents ApplicationEvent[]       @relation("EventActor")
   recruiterNotes    RecruiterNote[]
   auditLogs         AuditLog[]
+  authTokens         AuthToken[]
+}
+
+model AuthToken {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @db.Uuid
+  purpose    AuthTokenPurpose
+  tokenHash  String          @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
 }
 
 model CandidateProfile {

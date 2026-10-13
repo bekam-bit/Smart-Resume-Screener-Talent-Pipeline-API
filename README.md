@@ -12,6 +12,10 @@ Backend-first foundation for a secure, explainable recruitment workflow. The API
 - Repeatable Prisma database commands and a non-production seed
 - Domain module, provider, worker, middleware, and schema boundaries
 - Vitest and Supertest integration-test setup
+- Local authentication with strict JWT access tokens and rotating httpOnly refresh sessions
+- Argon2id password hashing, email verification, password reset, and logout-all
+- Rate-limited auth routes, Helmet, credentialed CORS, and trusted-origin checks
+- Organization-scoped RBAC permissions with job resource-scope checks
 
 ## Prerequisites
 
@@ -27,6 +31,8 @@ Copy-Item .env.example .env
 ```
 
 Update `.env` with a database connection string. The local `.env` is intentionally ignored by Git and must never be committed.
+Set a random `JWT_ACCESS_SECRET` outside local development. Refresh tokens are opaque, hashed in the database, rotated on use, and delivered through an httpOnly cookie.
+For email verification and password reset delivery, configure `RESEND_API_KEY`, `EMAIL_FROM` with a verified Resend sender, and `FRONTEND_APP_URL`. The API returns generic forgot-password responses and never exposes reset tokens when Resend is configured.
 
 Generate the Prisma client and synchronize the development database:
 
@@ -54,6 +60,26 @@ The default health endpoints are:
 - `GET http://localhost:4000/api/v1/health/live`
 - `GET http://localhost:4000/api/v1/health/ready`
 
+Authentication endpoints currently available:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/logout-all`
+- `POST /api/v1/auth/verify-email`
+- `POST /api/v1/auth/password/forgot`
+- `POST /api/v1/auth/password/reset`
+
+Email delivery is isolated behind the Resend provider. Token records are created before delivery, hashed at rest, expire after 15 minutes, and are single-use. Delivery failures are logged without exposing tokens or failing account persistence.
+
+Authorization baseline currently available:
+
+- `GET /api/v1/organizations/:organizationId/jobs` requires a bearer access token, active organization membership, and `job:read` permission.
+- `ADMIN` memberships can manage organization members and audit data.
+- `RECRUITER` memberships can manage recruitment workflow data but cannot manage organization membership or audit access.
+- Organization resources are queried with tenant scope; inaccessible organizations and jobs return `404`.
+
 ## Project layout
 
 ```text
@@ -78,7 +104,7 @@ tests/
 docs/
 ```
 
-Module route files are currently unmounted boundaries. The next implementation round should add authentication and refresh-token rotation, then organization-scoped authorization before exposing job and application routes.
+Most module route files are currently unmounted boundaries. The next implementation round should add email verification, permission-protected job mutations, application ownership checks, and then Google OIDC account linking.
 
 ## Useful commands
 

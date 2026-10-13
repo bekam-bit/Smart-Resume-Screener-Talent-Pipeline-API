@@ -16,4 +16,39 @@ describe("health endpoints", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("NOT_FOUND");
   });
+
+  it("rejects invalid registration input before touching the database", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ email: "invalid", password: "short", name: "" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("rejects organization job access without authentication", async () => {
+    const response = await request(app)
+      .get("/api/v1/organizations/00000000-0000-0000-0000-000000000000/jobs");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("rejects a modified bearer token before database authorization", async () => {
+    const response = await request(app)
+      .get("/api/v1/organizations/00000000-0000-0000-0000-000000000000/jobs")
+      .set("Authorization", "Bearer invalid-token");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("rejects an untrusted browser origin on cookie-authenticated refresh", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Origin", "https://attacker.example");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("INVALID_ORIGIN");
+  });
 });

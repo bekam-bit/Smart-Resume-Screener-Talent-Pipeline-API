@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Resume Screener — Auth Demo</title>
+  <meta name="description" content="Interactive demo for the Smart Resume Screener authentication flows: register, login, forgot password, reset password, and email verification." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0d14;
+      --bg2: #10141f;
+      --bg3: #161b2c;
+      --glass: rgba(255,255,255,0.04);
+      --glass-border: rgba(255,255,255,0.08);
+      --accent: #6366f1;
+      --accent-glow: rgba(99,102,241,0.35);
+      --accent2: #8b5cf6;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --radius: 14px;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(139,92,246,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 60% 40%, rgba(34,197,94,0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,13,20,0.85);
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .api-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .api-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Page layout ── */
+    .page {
+      padding: 40px 0 60px;
+    }
+
+    .page-hero {
+      text-align: center;
+      padding: 48px 0 40px;
+    }
+
+    .page-hero h1 {
+      font-size: clamp(26px, 4vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+
+    .page-hero p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Flow tabs ── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .tab-btn:hover {
+      border-color: rgba(99,102,241,0.4);
+      color: var(--text-dim);
+      background: rgba(99,102,241,0.08);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15));
+      border-color: rgba(99,102,241,0.5);
+      color: #a5b4fc;
+      box-shadow: 0 0 20px rgba(99,102,241,0.15);
+    }
+
+    .tab-icon { font-size: 16px; }
+
+    /* ── Main grid ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 28px;
+      backdrop-filter: blur(12px);
+      transition: border-color var(--transition);
+    }
+
+    .card:hover { border-color: rgba(99,102,241,0.2); }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .icon { font-size: 18px; }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+      line-height: 1.55;
+    }
+
+    /* ── Form ── */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    input::placeholder { color: var(--text-muted); }
+
+    input:focus {
+      border-color: rgba(99,102,241,0.6);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+
+    input.error { border-color: rgba(239,68,68,0.6); }
+
+    textarea {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      outline: none;
+      resize: vertical;
+      min-height: 80px;
+      transition: border-color var(--transition);
+    }
+
+    textarea:focus { border-color: rgba(99,102,241,0.4); }
+
+    /* ── Buttons ── */
+    .btn {
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 9px;
+      border: none;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(99,102,241,0.4);
+    }
+
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-dim);
+    }
+
+    .btn-secondary:hover { border-color: rgba(99,102,241,0.4); color: var(--text); }
+
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+    /* ── Response / Log panel ── */
+    .response-panel {
+      position: relative;
+    }
+
+    .response-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .response-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .response-clear {
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      transition: color var(--transition);
+    }
+
+    .response-clear:hover { color: var(--text-dim); }
+
+    .response-body {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      max-height: 320px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--glass-border) transparent;
+    }
+
+    .response-body::-webkit-scrollbar { width: 4px; }
+    .response-body::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+
+    .log-entry {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      animation: fade-in 0.3s ease;
+    }
+
+    .log-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-ts {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .log-method {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    .log-method.POST { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+
+    .log-url { color: var(--text-dim); font-size: 11px; }
+
+    .log-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin: 4px 0;
+    }
+
+    .log-status.ok { color: var(--green); }
+    .log-status.err { color: var(--red); }
+    .log-status.warn { color: var(--yellow); }
+
+    .log-json {
+      color: #93c5fd;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    /* ── Alert boxes ── */
+    .alert {
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .alert.show { display: flex; align-items: flex-start; gap: 8px; }
+    .alert.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+    .alert.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .alert.info { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc; }
+    .alert.warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+    .alert-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
+    /* ── Flow stepper ── */
+    .flow-steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .flow-steps::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      height: 1px;
+      background: var(--glass-border);
+      z-index: 0;
+    }
+
+    .flow-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 2px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all var(--transition);
+    }
+
+    .flow-step.active .step-circle {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .flow-step.done .step-circle {
+      background: rgba(34,197,94,0.2);
+      border-color: rgba(34,197,94,0.4);
+      color: var(--green);
+    }
+
+    .step-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .flow-step.active .step-label { color: #a5b4fc; }
+    .flow-step.done .step-label { color: var(--green); }
+
+    /* ── Token highlight box ── */
+    .token-box {
+      background: rgba(34,197,94,0.06);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 11.5px;
+      color: #86efac;
+      word-break: break-all;
+      font-family: monospace;
+      margin: 10px 0;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .token-box.show { display: block; }
+    .token-box-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 4px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+    }
+
+    /* ── Panel section ── */
+    .panel-section {
+      display: none;
+    }
+    .panel-section.active { display: block; }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--glass-border);
+      margin: 20px 0;
+    }
+
+    /* ── URL fragment helper ── */
+    .url-fragment-note {
+      background: rgba(99,102,241,0.08);
+      border: 1px dashed rgba(99,102,241,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #a5b4fc;
+      margin-bottom: 16px;
+      line-height: 1.55;
+    }
+
+    /* ── Hint text ── */
+    .hint { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.4; }
+
+    /* ── Resend link ── */
+    .action-link {
+      background: none;
+      border: none;
+      color: #a5b4fc;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      transition: color var(--transition);
+    }
+    .action-link:hover { color: #c4b5fd; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--glass-border);
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🔍</div>
+      <div class="logo-text">Smart<span>Resume</span> Screener</div>
+    </div>
+    <div class="api-badge">
+      <div class="dot"></div>
+      Auth Demo — API at :4000
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="page">
+
+    <div class="page-hero">
+      <h1>Auth Flows Demo</h1>
+      <p>Interactive testing of <strong>forgot password</strong>, <strong>reset password</strong>, and <strong>email verification</strong> against the live API.</p>
+    </div>
+
+    <!-- ── Tabs ── -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" id="tab-register" onclick="switchTab('register')" role="tab" aria-selected="true">
+        <span class="tab-icon">✨</span> Register
+      </button>
+      <button class="tab-btn" id="tab-login" onclick="switchTab('login')" role="tab">
+        <span class="tab-icon">🔑</span> Login
+      </button>
+      <button class="tab-btn" id="tab-verify" onclick="switchTab('verify')" role="tab">
+        <span class="tab-icon">📧</span> Verify Email
+      </button>
+      <button class="tab-btn" id="tab-forgot" onclick="switchTab('forgot')" role="tab">
+        <span class="tab-icon">🔓</span> Forgot Password
+      </button>
+      <button class="tab-btn" id="tab-reset" onclick="switchTab('reset')" role="tab">
+        <span class="tab-icon">🛡️</span> Reset Password
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         REGISTER
+    ══════════════════════════════════════════ -->
+    <div id="panel-register" class="panel-section active">
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-title"><span class="icon">✨</span> Create Account</div>
+          <p class="card-desc">Register a new account. A verification email will be sent via Resend. Password must be ≥ 12 characters.</p>
+
+          <div class="form-group">
+            <label for="reg-name">Full Name</label>
+            <input type="text" id="reg-name" placeholder="Jane Doe" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email Address</label>
+            <input type="email" id="reg-email" placeholder="jane@example.com" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Password (min 12 chars)</label>
+            <input type="password" id="reg-password" placeholder="••••••••••••" autocomplete="new-password" />
+          </div>
+
+          <button class="btn btn-primary" id="btn-register" onclick="doRegister()">Create Account</button>
+
+          <div class="alert" id="alert-register"></div>
+
+          <div id="reg-token-box" class="token-box">
+            <div class="token-box-label">Verification Token (dev — email already sent)</div>
+            <span id="reg-token-val"></span>
+          </div>
+        </div>
+
+        <div class="response-panel card">
+          <div class="response-header">
+            <div class="response-title">📋 Response Log</div>
+            <button class="response-clear" onclick="clearLog('log-register')">Clear</button>
+          </div>
+          <div class="response-body" id="log-register">
+            <div style="color:var(--text-muted);font-size:12px;">Hit <em>Create Account</em> to see the live API response here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         LOGIN
+    ══════════════════════════════════════════ -->
+    <div id="panel-login" class="panel-section">
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-title"><span class="icon">🔑</span> Login</div>
+          <p class="card-desc">Login with email & password. Requires email to be verified first. Returns an access token + sets refresh cookie.</p>
+
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" placeholder="jane@example.com" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="••••••••••••" autocomplete="current-password" />
+          </div>
+
+          <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Login</button>
+
+          <div class="alert" id="alert-login"></div>
+
+          <div id="login-token-box" class="token-box">
+            <div class="token-box-label">Access Token</div>
+            <span id="login-token-val"></span>
+          </div>
+        </div>
+
+        <div class="response-panel card">
+          <div class="response-header">
+            <div class="response-title">📋 Response Log</div>
+            <button class="response-clear" onclick="clearLog('log-login')">Clear</button>
+          </div>
+          <div class="response-body" id="log-login">
+            <div style="color:var(--text-muted);font-size:12px;">Hit <em>Login</em> to see the live API response here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         VERIFY EMAIL
+    ══════════════════════════════════════════ -->
+    <div id="panel-verify" class="panel-section">
+
+      <!-- Step indicators -->
+      <div class="flow-steps" id="verify-steps">
+        <div class="flow-step active" id="vstep-1">
+          <div class="step-circle">1</div>
+          <div class="step-label">Token</div>
+        </div>
+        <div class="flow-step" id="vstep-2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Verify</div>
+        </div>
+        <div class="flow-step" id="vstep-3">
+          <div class="step-circle">✓</div>
+          <div class="step-label">Done</div>
+        </div>
+      </div>
+
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-title"><span class="icon">📧</span> Verify Email</div>
+          <p class="card-desc">After registering, the real Resend email is sent with a link like <code>?token=...</code>. Paste the token here or let it auto-fill if you landed from the email link.</p>
+
+          <div id="url-token-notice" class="url-fragment-note" style="display:none;">
+            🔗 Token detected from URL query string and pre-filled below.
+          </div>
+
+          <div class="form-group">
+            <label for="verify-token">Verification Token</label>
+            <input type="text" id="verify-token" placeholder="Paste token from email link…" />
+            <p class="hint">Found in the email link after <code>?token=</code></p>
+          </div>
+
+          <button class="btn btn-primary" id="btn-verify" onclick="doVerifyEmail()">Verify Email</button>
+          <hr class="divider" />
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Need a new verification email?</p>
+          <div class="form-group">
+            <label for="reverify-email">Email Address</label>
+            <input type="email" id="reverify-email" placeholder="jane@example.com" />
+          </div>
+          <button class="btn btn-secondary" id="btn-reverify" onclick="doResendVerification()">Resend Verification Email</button>
+
+          <div class="alert" id="alert-verify"></div>
+        </div>
+
+        <div class="response-panel card">
+          <div class="response-header">
+            <div class="response-title">📋 Response Log</div>
+            <button class="response-clear" onclick="clearLog('log-verify')">Clear</button>
+          </div>
+          <div class="response-body" id="log-verify">
+            <div style="color:var(--text-muted);font-size:12px;">Verify an email token to see the live API response here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         FORGOT PASSWORD
+    ══════════════════════════════════════════ -->
+    <div id="panel-forgot" class="panel-section">
+
+      <div class="flow-steps">
+        <div class="flow-step active" id="fstep-1">
+          <div class="step-circle">1</div>
+          <div class="step-label">Request</div>
+        </div>
+        <div class="flow-step" id="fstep-2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Email Sent</div>
+        </div>
+        <div class="flow-step" id="fstep-3">
+          <div class="step-circle">3</div>
+          <div class="step-label">Reset →</div>
+        </div>
+      </div>
+
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-title"><span class="icon">🔓</span> Forgot Password</div>
+          <p class="card-desc">Enter your email and the API will send a password reset link via Resend. The token expires in <strong>15 minutes</strong>. The response never reveals whether the account exists (security by design).</p>
+
+          <div class="form-group">
+            <label for="forgot-email">Email Address</label>
+            <input type="email" id="forgot-email" placeholder="jane@example.com" autocomplete="email" />
+          </div>
+
+          <button class="btn btn-primary" id="btn-forgot" onclick="doForgotPassword()">Send Reset Email</button>
+
+          <div class="alert" id="alert-forgot"></div>
+
+          <div class="alert info show" style="margin-top:14px;">
+            <span class="alert-icon">ℹ️</span>
+            <span>After clicking, check your inbox. The email contains a link to the Reset Password tab. Token is valid for 15 minutes.</span>
+          </div>
+        </div>
+
+        <div class="response-panel card">
+          <div class="response-header">
+            <div class="response-title">📋 Response Log</div>
+            <button class="response-clear" onclick="clearLog('log-forgot')">Clear</button>
+          </div>
+          <div class="response-body" id="log-forgot">
+            <div style="color:var(--text-muted);font-size:12px;">Send a forgot password request to see the API response here.</div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <p class="hint" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">⬆️ Once you receive the email, click the link or paste the token into the <strong>Reset Password</strong> tab.</p>
+            <button class="btn btn-secondary" onclick="switchTab('reset')" style="margin-top:0;">→ Go to Reset Password</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         RESET PASSWORD
+    ══════════════════════════════════════════ -->
+    <div id="panel-reset" class="panel-section">
+
+      <div class="flow-steps">
+        <div class="flow-step done" id="rstep-1">
+          <div class="step-circle">✓</div>
+          <div class="step-label">Email Sent</div>
+        </div>
+        <div class="flow-step active" id="rstep-2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Token</div>
+        </div>
+        <div class="flow-step" id="rstep-3">
+          <div class="step-circle">3</div>
+          <div class="step-label">New Password</div>
+        </div>
+        <div class="flow-step" id="rstep-4">
+          <div class="step-circle">4</div>
+          <div class="step-label">Done</div>
+        </div>
+      </div>
+
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-title"><span class="icon">🛡️</span> Reset Password</div>
+          <p class="card-desc">Paste the reset token from your email (or it auto-fills when you click the reset link). All existing refresh sessions are revoked on success.</p>
+
+          <div id="reset-url-notice" class="url-fragment-note" style="display:none;">
+            🔗 Reset token detected from URL and pre-filled below.
+          </div>
+
+          <div class="form-group">
+            <label for="reset-token">Reset Token</label>
+            <input type="text" id="reset-token" placeholder="Paste token from reset email…" />
+            <p class="hint">Found in the email link after <code>?token=</code></p>
+          </div>
+          <div class="form-group">
+            <label for="reset-password">New Password (min 12 chars)</label>
+            <input type="password" id="reset-password" placeholder="••••••••••••" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label for="reset-confirm">Confirm New Password</label>
+            <input type="password" id="reset-confirm" placeholder="••••••••••••" autocomplete="new-password" />
+          </div>
+
+          <button class="btn btn-primary" id="btn-reset" onclick="doResetPassword()">Reset Password</button>
+
+          <div class="alert" id="alert-reset"></div>
+        </div>
+
+        <div class="response-panel card">
+          <div class="response-header">
+            <div class="response-title">📋 Response Log</div>
+            <button class="response-clear" onclick="clearLog('log-reset')">Clear</button>
+          </div>
+          <div class="response-body" id="log-reset">
+            <div style="color:var(--text-muted);font-size:12px;">Submit a password reset to see the live API response here.</div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <div class="alert warning show" id="reset-edge-cases">
+              <span class="alert-icon">⚠️</span>
+              <div>
+                <strong>Edge Cases handled:</strong><br/>
+                • Token expired (&gt;15 min) → 400 INVALID_RESET_TOKEN<br/>
+                • Token already used → 400 INVALID_RESET_TOKEN<br/>
+                • Password &lt; 12 chars → 400 VALIDATION_ERROR<br/>
+                • All sessions revoked on success (security)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /container -->
+
+<footer>
+  <strong>Smart Resume Screener</strong> · Auth Flow Demo · Served by Express at <code>http://localhost:4000</code>
+</footer>
+
+<script>
+  // API is served on the same origin as this page (Express static + /api/v1 on port 4000)
+  const API = '/api/v1/auth';
+
+  // ── Auto-fill tokens from URL query string ──
+  (function autoFillFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) return;
+
+    const type = params.get('type') || 'verify'; // email links include ?type=verify or ?type=reset
+
+    if (type === 'reset') {
+      document.getElementById('reset-token').value = token;
+      document.getElementById('reset-url-notice').style.display = 'block';
+      switchTab('reset');
+    } else {
+      // type=verify (default) — email verification link
+      document.getElementById('verify-token').value = token;
+      document.getElementById('url-token-notice').style.display = 'block';
+      switchTab('verify');
+    }
+  })();
+
+  // ── Tab switching ──
+  function switchTab(name) {
+    document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  // ── Helpers ──
+  function setLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    if (loading) btn.classList.add('btn-loading');
+    else btn.classList.remove('btn-loading');
+  }
+
+  function showAlert(id, type, html) {
+    const el = document.getElementById(id);
+    el.className = 'alert ' + type + ' show';
+    el.innerHTML = `<span class="alert-icon">${{success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'}[type]}</span><span>${html}</span>`;
+  }
+
+  function hideAlert(id) {
+    document.getElementById(id).className = 'alert';
+  }
+
+  function clearLog(id) {
+    document.getElementById(id).innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Log cleared.</div>';
+  }
+
+  function appendLog(logId, method, url, status, data) {
+    const log = document.getElementById(logId);
+    const isOk = status >= 200 && status < 300;
+    const ts = new Date().toLocaleTimeString();
+    const statusClass = isOk ? 'ok' : (status === 429 ? 'warn' : 'err');
+    const statusIcon = isOk ? '✓' : (status === 429 ? '⚡' : '✗');
+
+    // Clear placeholder
+    if (log.querySelector('div[style]')) log.innerHTML = '';
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <div class="log-ts">${ts}</div>
+      <div><span class="log-method ${method}">${method}</span><span class="log-url">${url}</span></div>
+      <div class="log-status ${statusClass}">${statusIcon} HTTP ${status}</div>
+      <div class="log-json">${JSON.stringify(data, null, 2)}</div>
+    `;
+    log.prepend(entry);
+  }
+
+  async function apiCall(endpoint, body) {
+    const url = `${API}${endpoint}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    });
+    let data;
+    try { data = await res.json(); } catch { data = { raw: await res.text() }; }
+    return { status: res.status, data };
+  }
+
+  // ══════════════════════════════════════════
+  // REGISTER
+  // ══════════════════════════════════════════
+  async function doRegister() {
+    hideAlert('alert-register');
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+
+    if (!name || !email || !password) {
+      return showAlert('alert-register', 'error', 'All fields are required.');
+    }
+    if (password.length < 12) {
+      return showAlert('alert-register', 'error', 'Password must be at least 12 characters.');
+    }
+
+    setLoading('btn-register', true);
+    try {
+      const { status, data } = await apiCall('/register', { name, email, password });
+      appendLog('log-register', 'POST', '/register', status, data);
+
+      if (status === 201) {
+        showAlert('alert-register', 'success',
+          `Account created! Check <strong>${email}</strong> for the verification email. Token expires in 15 min.`);
+
+        // In dev without Resend the token would be returned — handle gracefully
+        if (data.verificationToken) {
+          document.getElementById('reg-token-val').textContent = data.verificationToken;
+          document.getElementById('reg-token-box').classList.add('show');
+          document.getElementById('verify-token').value = data.verificationToken;
+        }
+      } else if (status === 409) {
+        showAlert('alert-register', 'error', 'An account already exists for this email address.');
+      } else if (status === 400) {
+        showAlert('alert-register', 'error', data?.error?.message || 'Validation error — check your inputs.');
+      } else if (status === 429) {
+        showAlert('alert-register', 'warning', 'Too many requests. Please wait a moment and try again.');
+      } else {
+        showAlert('alert-register', 'error', data?.error?.message || 'Unexpected error occurred.');
+      }
+    } catch (err) {
+      showAlert('alert-register', 'error', `Network error: ${err.message}. Is the server running on port 4000?`);
+    } finally {
+      setLoading('btn-register', false);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // LOGIN
+  // ══════════════════════════════════════════
+  async function doLogin() {
+    hideAlert('alert-login');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+      return showAlert('alert-login', 'error', 'Email and password are required.');
+    }
+
+    setLoading('btn-login', true);
+    try {
+      const { status, data } = await apiCall('/login', { email, password });
+      appendLog('log-login', 'POST', '/login', status, data);
+
+      if (status === 200) {
+        showAlert('alert-login', 'success', `Logged in as <strong>${data.user?.email}</strong>! Access token received.`);
+        if (data.accessToken) {
+          document.getElementById('login-token-val').textContent = data.accessToken;
+          document.getElementById('login-token-box').classList.add('show');
+        }
+      } else if (status === 401) {
+        showAlert('alert-login', 'error', 'Invalid email or password.');
+      } else if (status === 403) {
+        showAlert('alert-login', 'error',
+          'Email not verified yet. <button class="action-link" onclick="switchTab(\'verify\')">Go verify email →</button>');
+      } else if (status === 429) {
+        showAlert('alert-login', 'warning', 'Too many login attempts. Please wait 15 minutes.');
+      } else {
+        showAlert('alert-login', 'error', data?.error?.message || 'Login failed.');
+      }
+    } catch (err) {
+      showAlert('alert-login', 'error', `Network error: ${err.message}. Is the server running?`);
+    } finally {
+      setLoading('btn-login', false);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // VERIFY EMAIL
+  // ══════════════════════════════════════════
+  async function doVerifyEmail() {
+    hideAlert('alert-verify');
+    const token = document.getElementById('verify-token').value.trim();
+
+    if (!token) {
+      return showAlert('alert-verify', 'error', 'Please paste your verification token.');
+    }
+    if (token.length < 32) {
+      return showAlert('alert-verify', 'error', 'Token appears too short. Ensure you copied the full token from the email.');
+    }
+
+    setVStep(2);
+    setLoading('btn-verify', true);
+    try {
+      const { status, data } = await apiCall('/verify-email', { token });
+      appendLog('log-verify', 'POST', '/verify-email', status, data);
+
+      if (status === 200) {
+        setVStep(3);
+        showAlert('alert-verify', 'success',
+          'Email verified successfully! You can now <button class="action-link" onclick="switchTab(\'login\')">log in →</button>');
+      } else if (status === 400) {
+        setVStep(1);
+        const code = data?.error?.code;
+        if (code === 'INVALID_VERIFICATION_TOKEN') {
+          showAlert('alert-verify', 'error', 'Token is invalid or expired (tokens expire after 15 minutes). Request a new verification email below.');
+        } else {
+          showAlert('alert-verify', 'error', data?.error?.message || 'Verification failed.');
+        }
+      } else if (status === 429) {
+        showAlert('alert-verify', 'warning', 'Too many verification attempts. Please wait before retrying.');
+      } else {
+        showAlert('alert-verify', 'error', data?.error?.message || 'Unexpected error.');
+      }
+    } catch (err) {
+      setVStep(1);
+      showAlert('alert-verify', 'error', `Network error: ${err.message}. Is the server running?`);
+    } finally {
+      setLoading('btn-verify', false);
+    }
+  }
+
+  function setVStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const el = document.getElementById('vstep-' + i);
+      el.classList.remove('active', 'done');
+      if (i < n) el.classList.add('done');
+      else if (i === n) el.classList.add('active');
+    }
+  }
+
+  async function doResendVerification() {
+    hideAlert('alert-verify');
+    const email = document.getElementById('reverify-email').value.trim();
+    if (!email) return showAlert('alert-verify', 'error', 'Enter your email address.');
+
+    setLoading('btn-reverify', true);
+    try {
+      const { status, data } = await apiCall('/verify-email/resend', { email });
+      appendLog('log-verify', 'POST', '/verify-email/resend', status, data);
+
+      if (status === 200) {
+        showAlert('alert-verify', 'success',
+          'If your account exists and is unverified, a new verification email has been sent. Check your inbox.');
+      } else if (status === 429) {
+        showAlert('alert-verify', 'warning', 'Too many requests. Please wait before retrying.');
+      } else {
+        showAlert('alert-verify', 'error', data?.error?.message || 'Unexpected error.');
+      }
+    } catch (err) {
+      showAlert('alert-verify', 'error', `Network error: ${err.message}. Is the server running?`);
+    } finally {
+      setLoading('btn-reverify', false);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // FORGOT PASSWORD
+  // ══════════════════════════════════════════
+  async function doForgotPassword() {
+    hideAlert('alert-forgot');
+    const email = document.getElementById('forgot-email').value.trim();
+
+    if (!email) {
+      return showAlert('alert-forgot', 'error', 'Please enter your email address.');
+    }
+
+    setFStep(2);
+    setLoading('btn-forgot', true);
+    try {
+      const { status, data } = await apiCall('/password/forgot', { email });
+      appendLog('log-forgot', 'POST', '/password/forgot', status, data);
+
+      if (status === 200) {
+        setFStep(3);
+        showAlert('alert-forgot', 'success',
+          'Request sent! If that email is registered, a reset link has been dispatched. Check your inbox (and spam folder). Token expires in 15 minutes.');
+
+        // If in dev mode without Resend, token may be returned
+        if (data.resetToken) {
+          document.getElementById('reset-token').value = data.resetToken;
+          appendLog('log-forgot', 'POST', 'NOTE: dev mode — resetToken exposed', 200, { devToken: data.resetToken });
+        }
+      } else if (status === 400) {
+        setFStep(1);
+        showAlert('alert-forgot', 'error', data?.error?.message || 'Invalid email address.');
+      } else if (status === 429) {
+        setFStep(1);
+        showAlert('alert-forgot', 'warning', 'Too many requests. Please wait 15 minutes before requesting again.');
+      } else {
+        setFStep(1);
+        showAlert('alert-forgot', 'error', data?.error?.message || 'Something went wrong.');
+      }
+    } catch (err) {
+      setFStep(1);
+      showAlert('alert-forgot', 'error', `Network error: ${err.message}. Is the server running?`);
+    } finally {
+      setLoading('btn-forgot', false);
+    }
+  }
+
+  function setFStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const el = document.getElementById('fstep-' + i);
+      el.classList.remove('active', 'done');
+      if (i < n) el.classList.add('done');
+      else if (i === n) el.classList.add('active');
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // RESET PASSWORD
+  // ══════════════════════════════════════════
+  async function doResetPassword() {
+    hideAlert('alert-reset');
+    const token = document.getElementById('reset-token').value.trim();
+    const password = document.getElementById('reset-password').value;
+    const confirm = document.getElementById('reset-confirm').value;
+
+    if (!token) {
+      return showAlert('alert-reset', 'error', 'Please paste the reset token from your email.');
+    }
+    if (token.length < 32) {
+      return showAlert('alert-reset', 'error', 'Token appears too short. Copy the full token from the reset link.');
+    }
+    if (!password) {
+      return showAlert('alert-reset', 'error', 'Please enter a new password.');
+    }
+    if (password.length < 12) {
+      return showAlert('alert-reset', 'error', 'Password must be at least 12 characters.');
+    }
+    if (password !== confirm) {
+      return showAlert('alert-reset', 'error', 'Passwords do not match.');
+    }
+
+    setRStep(3);
+    setLoading('btn-reset', true);
+    try {
+      const { status, data } = await apiCall('/password/reset', { token, password });
+      appendLog('log-reset', 'POST', '/password/reset', status, data);
+
+      if (status === 200) {
+        setRStep(4);
+        document.getElementById('reset-token').value = '';
+        document.getElementById('reset-password').value = '';
+        document.getElementById('reset-confirm').value = '';
+        showAlert('alert-reset', 'success',
+          'Password reset successfully! All previous sessions have been revoked for security. <button class="action-link" onclick="switchTab(\'login\')">Login with new password →</button>');
+      } else if (status === 400) {
+        setRStep(2);
+        const code = data?.error?.code;
+        if (code === 'INVALID_RESET_TOKEN') {
+          showAlert('alert-reset', 'error',
+            'Reset token is invalid or expired (15-minute window). Please <button class="action-link" onclick="switchTab(\'forgot\')">request a new reset email →</button>');
+        } else if (code === 'VALIDATION_ERROR') {
+          showAlert('alert-reset', 'error', 'Password does not meet requirements (min 12 chars, max 128 chars).');
+        } else {
+          showAlert('alert-reset', 'error', data?.error?.message || 'Reset failed.');
+        }
+      } else if (status === 429) {
+        setRStep(2);
+        showAlert('alert-reset', 'warning', 'Too many reset attempts. Please wait before trying again.');
+      } else {
+        setRStep(2);
+        showAlert('alert-reset', 'error', data?.error?.message || 'Unexpected error occurred.');
+      }
+    } catch (err) {
+      setRStep(2);
+      showAlert('alert-reset', 'error', `Network error: ${err.message}. Is the server running?`);
+    } finally {
+      setLoading('btn-reset', false);
+    }
+  }
+
+  function setRStep(n) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('rstep-' + i);
+      el.classList.remove('active', 'done');
+      if (i < n) el.classList.add('done');
+      else if (i === n) el.classList.add('active');
+    }
+  }
+</script>
+</body>
+</html>

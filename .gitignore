@@ -16,3 +16,5 @@ storage/
 uploads/
 .DS_Store
 Thumbs.db
+.env.example
+server.err
