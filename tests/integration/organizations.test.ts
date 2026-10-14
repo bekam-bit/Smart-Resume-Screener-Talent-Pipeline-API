@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../../src/app.js";
+import { prisma } from "../../src/config/prisma.js";
 import { createTestUser, databaseAvailable, removeTestUser } from "../helpers.js";
 
 const base = "/api/v1/organizations";
@@ -20,6 +21,9 @@ describe.runIf(databaseAvailable)("organizations and membership", () => {
   });
 
   afterAll(async () => {
+    await prisma.emailOutbox.deleteMany({
+      where: { recipient: { in: ["invite-target@example.test", admin.user.email, recruiter.user.email] } }
+    }).catch(() => {});
     await removeTestUser(admin.user.id, organizationIds);
     await removeTestUser(recruiter.user.id);
     await removeTestUser(outsider.user.id);
@@ -125,7 +129,7 @@ describe.runIf(databaseAvailable)("organizations and membership", () => {
     expect(duplicateSlug.body.error.code).toBe("SLUG_IN_USE");
   });
 
-  it("invites an unknown email as a pending, password-less account", async () => {
+  it("invites an unknown email as a pending, password-less account and sends invitation email", async () => {
     const organization = await createOrganization(admin.accessToken, "Invite Only GmbH");
 
     const response = await request(app)
@@ -136,6 +140,15 @@ describe.runIf(databaseAvailable)("organizations and membership", () => {
     expect(response.status).toBe(201);
     expect(response.body.member.status).toBe("INVITED");
     expect(response.body.member.email).toBe("invite-target@example.test");
+
+    const inviteOutbox = await prisma.emailOutbox.findFirst({
+      where: { recipient: "invite-target@example.test" },
+      orderBy: { createdAt: "desc" }
+    });
+    expect(inviteOutbox).not.toBeNull();
+    expect(inviteOutbox?.subject).toContain("Invitation to join Invite Only GmbH as Recruiter");
+    expect(inviteOutbox?.bodyHtml).toContain("Invite Only GmbH");
+    expect(inviteOutbox?.bodyHtml).toContain("auth-demo.html?token=");
   });
 
   it("refuses to demote the only active admin", async () => {

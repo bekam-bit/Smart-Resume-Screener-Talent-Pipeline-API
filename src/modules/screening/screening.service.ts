@@ -6,7 +6,6 @@ import { logger } from "../../utils/logger.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { extractResumeText } from "./extraction.service.js";
 import { runDeterministicMatcher } from "./deterministic-matcher.js";
-import { screenWithGemini } from "../../providers/gemini.ai.js";
 import { runRagScreening } from "./rag.service.js";
 import { evaluateReviewFlags } from "./shortlisting.service.js";
 

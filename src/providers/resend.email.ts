@@ -305,19 +305,276 @@ export const renderPasswordResetEmail = (email: string, token: string) => {
   };
 };
 
-export const renderInvitationEmail = (email: string, token: string, orgName?: string) => {
+// ─────────────────────────────────────────────────────────────
+//  Organization Invitation & Member Added templates
+// ─────────────────────────────────────────────────────────────
+const invitationHtml = (
+  email: string,
+  url: string,
+  orgName: string,
+  role: string,
+  recipientName?: string | null
+) => {
+  const isRoleAdmin = role.toUpperCase() === "ADMIN";
+  const roleLabel = isRoleAdmin ? "Organization Administrator" : "Recruiter";
+  const roleBadge = isRoleAdmin ? "👑 Organization Admin" : "🎯 Recruiter";
+  const roleColor = isRoleAdmin ? "#f59e0b" : "#38bdf8";
+
+  const description = isRoleAdmin
+    ? "As an Organization Administrator, you will have complete administrative authority to configure organization settings, invite and manage team members, manage job openings, and oversee full screening and hiring pipelines."
+    : "As a Recruiter, you will have access to create and publish jobs, review candidate resumes, analyze AI-driven candidate match evaluations, curate shortlists, and coordinate interview scheduling.";
+
+  const greeting = recipientName ? `Hi ${recipientName},` : "Hello,";
+
+  return emailLayout(/* html */ `
+    <div style="margin-bottom: 20px;">
+      <span style="
+        display:inline-block;
+        padding: 4px 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        color: ${roleColor};
+      ">${roleBadge}</span>
+    </div>
+
+    <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#e2e8f0;letter-spacing:-0.6px;">
+      Join ${orgName} on Smart Resume Screener
+    </h1>
+    <p style="margin:0 0 20px;font-size:14px;color:#94a3b8;line-height:1.65;">
+      ${greeting} You've been invited to join <strong style="color:#ffffff;">${orgName}</strong> as a <strong style="color:${roleColor};">${roleLabel}</strong>.
+    </p>
+
+    <!-- Role description card -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td style="
+          background:rgba(255,255,255,0.03);
+          border:1px solid rgba(255,255,255,0.08);
+          border-left:4px solid ${roleColor};
+          border-radius:8px;
+          padding:16px 20px;
+        ">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#e2e8f0;">
+            Role Overview: ${roleLabel}
+          </p>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+            ${description}
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA Button -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td align="center">
+          <a href="${url}" target="_blank" style="
+            display:inline-block;
+            padding:14px 36px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            color:#ffffff;
+            font-size:15px;
+            font-weight:700;
+            text-decoration:none;
+            border-radius:10px;
+            letter-spacing:-0.2px;
+            box-shadow:0 4px 20px rgba(99,102,241,0.4);
+          ">Accept Invitation & Set Password</a>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Expiry notice -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="
+          background:rgba(99,102,241,0.08);
+          border:1px solid rgba(99,102,241,0.2);
+          border-radius:8px;
+          padding:12px 16px;
+        ">
+          <p style="margin:0;font-size:12.5px;color:#a5b4fc;line-height:1.5;">
+            ⏱ <strong>This invitation link expires in 15 minutes.</strong> 
+            Click the button above to set your password and activate your account.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- URL fallback -->
+    <p style="margin:0 0 6px;font-size:12px;color:#475569;">
+      If the button doesn't work, copy and paste this URL into your browser:
+    </p>
+    <p style="
+      margin:0;
+      font-size:11px;
+      color:#6366f1;
+      word-break:break-all;
+      font-family:monospace;
+      background:#0f1117;
+      padding:10px 12px;
+      border-radius:6px;
+      border:1px solid #1e2035;
+    ">${url}</p>
+  `);
+};
+
+const membershipAddedHtml = (
+  email: string,
+  loginUrl: string,
+  orgName: string,
+  role: string,
+  recipientName?: string | null
+) => {
+  const isRoleAdmin = role.toUpperCase() === "ADMIN";
+  const roleLabel = isRoleAdmin ? "Organization Administrator" : "Recruiter";
+  const roleBadge = isRoleAdmin ? "👑 Organization Admin" : "🎯 Recruiter";
+  const roleColor = isRoleAdmin ? "#f59e0b" : "#38bdf8";
+
+  const description = isRoleAdmin
+    ? "As an Organization Administrator, you will have complete administrative authority to configure organization settings, invite and manage team members, manage job openings, and oversee full screening and hiring pipelines."
+    : "As a Recruiter, you will have access to create and publish jobs, review candidate resumes, analyze AI-driven candidate match evaluations, curate shortlists, and coordinate interview scheduling.";
+
+  const greeting = recipientName ? `Hi ${recipientName},` : "Hello,";
+
+  return emailLayout(/* html */ `
+    <div style="margin-bottom: 20px;">
+      <span style="
+        display:inline-block;
+        padding: 4px 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        color: ${roleColor};
+      ">${roleBadge}</span>
+    </div>
+
+    <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#e2e8f0;letter-spacing:-0.6px;">
+      Welcome to ${orgName}
+    </h1>
+    <p style="margin:0 0 20px;font-size:14px;color:#94a3b8;line-height:1.65;">
+      ${greeting} You have been added to <strong style="color:#ffffff;">${orgName}</strong> as a <strong style="color:${roleColor};">${roleLabel}</strong> on Smart Resume Screener.
+    </p>
+
+    <!-- Role description card -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td style="
+          background:rgba(255,255,255,0.03);
+          border:1px solid rgba(255,255,255,0.08);
+          border-left:4px solid ${roleColor};
+          border-radius:8px;
+          padding:16px 20px;
+        ">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#e2e8f0;">
+            Role Overview: ${roleLabel}
+          </p>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+            ${description}
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA Button -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td align="center">
+          <a href="${loginUrl}" target="_blank" style="
+            display:inline-block;
+            padding:14px 36px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            color:#ffffff;
+            font-size:15px;
+            font-weight:700;
+            text-decoration:none;
+            border-radius:10px;
+            letter-spacing:-0.2px;
+            box-shadow:0 4px 20px rgba(99,102,241,0.4);
+          ">Go to Organization Workspace</a>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="
+          background:rgba(99,102,241,0.08);
+          border:1px solid rgba(99,102,241,0.2);
+          border-radius:8px;
+          padding:12px 16px;
+        ">
+          <p style="margin:0;font-size:12.5px;color:#a5b4fc;line-height:1.5;">
+            💡 <strong>Your account is already active.</strong> 
+            Sign in with your existing credentials to access ${orgName}.
+          </p>
+        </td>
+      </tr>
+    </table>
+  `);
+};
+
+export const renderInvitationEmail = (
+  email: string,
+  token: string,
+  orgName?: string,
+  role: string = "RECRUITER",
+  recipientName?: string | null
+) => {
   const url = `${env.FRONTEND_APP_URL}/auth-demo.html?token=${encodeURIComponent(token)}&type=reset`;
+  const company = orgName || "our organization";
+  const isRoleAdmin = role.toUpperCase() === "ADMIN";
+  const roleLabel = isRoleAdmin ? "Organization Administrator" : "Recruiter";
+
   return {
     recipient: email,
-    subject: orgName ? `Invitation to join ${orgName} on Smart Resume Screener` : "Invitation to join Smart Resume Screener",
-    bodyHtml: passwordResetHtml(email, url),
+    subject: `Invitation to join ${company} as ${roleLabel} on Smart Resume Screener`,
+    bodyHtml: invitationHtml(email, url, company, role, recipientName),
     bodyText: [
-      orgName ? `Invitation to join ${orgName}` : "Invitation to Smart Resume Screener",
+      `Invitation to join ${company} as ${roleLabel}`,
       "",
-      `You have been invited to join ${orgName ?? "Smart Resume Screener"}. Click the link below to activate your account and set your password:`,
+      `Hi! You have been invited to join ${company} as a ${roleLabel} on Smart Resume Screener.`,
+      isRoleAdmin
+        ? "As an Organization Administrator, you will have complete administrative authority to configure organization settings, invite and manage team members, manage job openings, and oversee full screening and hiring pipelines."
+        : "As a Recruiter, you will have access to create and publish jobs, review candidate resumes, analyze AI-driven candidate match evaluations, curate shortlists, and coordinate interview scheduling.",
+      "",
+      "Click the link below to activate your account and set your password:",
       url,
       "",
       "This link expires in 15 minutes."
+    ].join("\n")
+  };
+};
+
+export const renderMemberAddedEmail = (
+  email: string,
+  orgName: string,
+  role: string = "RECRUITER",
+  recipientName?: string | null
+) => {
+  const url = `${env.FRONTEND_APP_URL}/dashboard`;
+  const isRoleAdmin = role.toUpperCase() === "ADMIN";
+  const roleLabel = isRoleAdmin ? "Organization Administrator" : "Recruiter";
+
+  return {
+    recipient: email,
+    subject: `You've been added to ${orgName} as ${roleLabel}`,
+    bodyHtml: membershipAddedHtml(email, url, orgName, role, recipientName),
+    bodyText: [
+      `You've been added to ${orgName} as ${roleLabel}`,
+      "",
+      `Hi! You have been granted membership in ${orgName} as a ${roleLabel} on Smart Resume Screener.`,
+      isRoleAdmin
+        ? "As an Organization Administrator, you will have complete administrative authority to configure organization settings, invite and manage team members, manage job openings, and oversee full screening and hiring pipelines."
+        : "As a Recruiter, you will have access to create and publish jobs, review candidate resumes, analyze AI-driven candidate match evaluations, curate shortlists, and coordinate interview scheduling.",
+      "",
+      `Sign in with your existing credentials to access ${orgName}:`,
+      url
     ].join("\n")
   };
 };

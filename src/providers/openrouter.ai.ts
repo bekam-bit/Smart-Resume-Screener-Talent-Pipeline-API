@@ -1,30 +1,6 @@
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
-
-/**
- * Deterministic hash-based normalized vector generator for offline fallback/testing.
- * Guarantees that similar texts produce closer cosine distance, while allowing
- * 100% test reliability when network calls are unavailable.
- */
-export const generateFallbackEmbedding = (text: string, dimension = env.EMBEDDING_DIMENSION): number[] => {
-  const vector = new Array<number>(dimension).fill(0);
-  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
-
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i]!;
-    let hash = 0;
-    for (let c = 0; c < word.length; c++) {
-      hash = (hash * 31 + word.charCodeAt(c)) & 0x7fffffff;
-    }
-    const idx = hash % dimension;
-    vector[idx] = (vector[idx] ?? 0) + 1.0;
-  }
-
-  // L2-normalize vector for unit length
-  const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-  if (norm === 0) return vector;
-  return vector.map((val) => val / norm);
-};
+import { AppError } from "../utils/app-error.js";
 
 export interface OpenRouterEmbeddingResponse {
   data?: Array<{
@@ -34,8 +10,9 @@ export interface OpenRouterEmbeddingResponse {
 }
 
 /**
- * Generates embeddings for one or more text passages using OpenRouter embedding models.
- * Automatically falls back to deterministic vector generation if offline or in test environments.
+ * Generates genuine neural embeddings for one or more text passages using OpenRouter embedding models.
+ * Fails fast with clear AppError diagnostics if credentials are missing or the API encounters errors,
+ * preventing synthetic/corrupted vectors from polluting pgvector storage.
  */
 export const getEmbeddings = async (
   texts: string | string[],
@@ -47,19 +24,25 @@ export const getEmbeddings = async (
   const apiKey = env.OPENROUTER_API_KEY;
   const model = options?.model ?? env.OPENROUTER_EMBED_MODEL;
 
-  if (!apiKey || env.NODE_ENV === "test") {
-    return textArray.map((t) => generateFallbackEmbedding(t));
+  if (!apiKey) {
+    throw new AppError(
+      "OPENROUTER_CONFIG_ERROR",
+      "OpenRouter API key is not configured. Genuine AI embeddings require a valid API key.",
+      500
+    );
   }
 
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": env.OPENROUTER_SITE_URL,
+      "X-Title": env.OPENROUTER_SITE_NAME
+    };
+
     const response = await fetch(`${env.OPENROUTER_BASE_URL}/embeddings`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": env.OPENROUTER_SITE_URL,
-        "X-Title": env.OPENROUTER_SITE_NAME
-      },
+      headers,
       body: JSON.stringify({
         model,
         input: textArray
@@ -68,27 +51,47 @@ export const getEmbeddings = async (
     });
 
     if (!response.ok) {
-      logger.warn("openrouter_embeddings_fallback", {
+      logger.error("openrouter_embeddings_failed", {
         status: response.status,
         statusText: response.statusText,
         model
       });
-      return textArray.map((t) => generateFallbackEmbedding(t));
+      throw new AppError(
+        "OPENROUTER_EMBEDDING_FAILED",
+        `OpenRouter embeddings request failed with status ${response.status}: ${response.statusText}`,
+        502
+      );
     }
 
     const json = (await response.json()) as OpenRouterEmbeddingResponse;
     const embeddings = json.data?.map((d) => d.embedding).filter((e): e is number[] => Array.isArray(e));
 
     if (!embeddings || embeddings.length !== textArray.length) {
-      return textArray.map((t) => generateFallbackEmbedding(t));
+      logger.error("openrouter_embeddings_incomplete", {
+        model,
+        expectedLength: textArray.length,
+        receivedLength: embeddings?.length ?? 0
+      });
+      throw new AppError(
+        "OPENROUTER_EMBEDDING_INCOMPLETE",
+        "OpenRouter embeddings response is malformed or missing vector data",
+        502
+      );
     }
 
     return embeddings;
   } catch (error) {
-    logger.warn("openrouter_embeddings_error", {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    logger.error("openrouter_embeddings_error", {
       error: error instanceof Error ? error.message : String(error)
     });
-    return textArray.map((t) => generateFallbackEmbedding(t));
+    throw new AppError(
+      "OPENROUTER_EMBEDDING_ERROR",
+      `Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`,
+      502
+    );
   }
 };
 
@@ -117,14 +120,16 @@ export const completeChat = async (
   }
 
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": env.OPENROUTER_SITE_URL,
+      "X-Title": env.OPENROUTER_SITE_NAME
+    };
+
     const response = await fetch(`${env.OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": env.OPENROUTER_SITE_URL,
-        "X-Title": env.OPENROUTER_SITE_NAME
-      },
+      headers,
       body: JSON.stringify({
         model: primaryModel,
         models: [

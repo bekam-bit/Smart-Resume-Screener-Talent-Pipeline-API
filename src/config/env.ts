@@ -35,15 +35,17 @@ const envSchema = z.object({
   MAX_RESUME_SIZE_BYTES: z.coerce.number().int().positive().default(5_242_880),
 
   // ── AI & Screening Worker ──
+  GEMINI_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
-  OPENROUTER_BASE_URL: z.string().optional(),
-  OPENROUTER_TEXT_MODEL: z.string().optional(),
-  OPENROUTER_EMBED_MODEL: z.string().optional(),
-  OPENROUTER_SITE_URL: z.string().optional(),
-  OPENROUTER_SITE_NAME: z.string().optional(),
+  OPENROUTER_BASE_URL: z.string().default("https://openrouter.ai/api/v1"),
+  OPENROUTER_TEXT_MODEL: z.string().default("google/gemma-4-26b-a4b-it:free"),
+  OPENROUTER_EMBED_MODEL: z.string().default("nvidia/llama-nemotron-embed-vl-1b-v2:free"),
+  OPENROUTER_SITE_URL: z.string().default("http://localhost:4000"),
+  OPENROUTER_SITE_NAME: z.string().default("SmartScreener"),
   EMBEDDING_DIMENSION: z.coerce.number().int().positive().default(2048),
   SCREENING_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
-  SCREENING_BATCH_SIZE: z.coerce.number().int().positive().default(5)
+  SCREENING_BATCH_SIZE: z.coerce.number().int().positive().default(5),
+  ENABLE_EMBEDDED_WORKERS: z.enum(["true", "false"]).transform((v) => v === "true").default(true)
 });
 
 export const env = envSchema.parse(process.env);

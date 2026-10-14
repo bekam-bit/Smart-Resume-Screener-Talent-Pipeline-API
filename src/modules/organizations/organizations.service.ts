@@ -1,8 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
 import { isUniqueConstraintError, withDbRetry } from "../../utils/db-retry.js";
-import { renderInvitationEmail } from "../../providers/resend.email.js";
-import { enqueueEmail } from "../notifications/outbox.service.js";
+import { enqueueOrganizationMemberNoticeEmail } from "../notifications/applicant-notifications.service.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { createAuthToken } from "../auth/auth.service.js";
 import type { Pagination } from "../../schemas/common.schema.js";
@@ -168,23 +167,15 @@ export const listMembers = async (organizationId: string, pagination: Pagination
   };
 };
 
-const deliverInvite = async (userId: string, email: string) => {
-  const token = await createAuthToken(userId, "PASSWORD_RESET");
-  const rendered = renderInvitationEmail(email, token);
-  try {
-    await enqueueEmail({
-      recipient: rendered.recipient,
-      subject: rendered.subject,
-      bodyHtml: rendered.bodyHtml,
-      bodyText: rendered.bodyText,
-      metadata: { userId, purpose: "ORGANIZATION_INVITATION" }
-    });
-  } catch (error) {
-    console.error("Member invitation outbox enqueue failed", error instanceof Error ? error.message : "unknown error");
-  }
-};
-
 export const addMember = async (organizationId: string, actorId: string, input: AddMemberInput) => {
+  const organization = await withDbRetry(() =>
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true }
+    })
+  );
+  if (!organization) throw new AppError("ORGANIZATION_NOT_FOUND", "Organization not found", 404);
+
   const existingUser = await withDbRetry(() =>
     prisma.user.findUnique({
       where: { email: input.email },
@@ -228,7 +219,28 @@ export const addMember = async (organizationId: string, actorId: string, input: 
           })
     );
 
-    if (status === "INVITED") await deliverInvite(target.id, target.email);
+    if (status === "INVITED") {
+      const token = await createAuthToken(target.id, "PASSWORD_RESET");
+      await enqueueOrganizationMemberNoticeEmail({
+        organizationId,
+        organizationName: organization.name,
+        recipientEmail: target.email,
+        recipientName: target.candidateProfile?.name ?? null,
+        role: input.role,
+        isNewUser: true,
+        token
+      });
+    } else {
+      // Active user added to organization
+      await enqueueOrganizationMemberNoticeEmail({
+        organizationId,
+        organizationName: organization.name,
+        recipientEmail: target.email,
+        recipientName: target.candidateProfile?.name ?? null,
+        role: input.role,
+        isNewUser: false
+      });
+    }
 
     await recordAudit({
       actorId,
@@ -310,6 +322,19 @@ export const updateMember = async (
     resourceId: targetUserId,
     metadata: { email: membership.user.email, role: updated.role, status: updated.status }
   });
+
+  if (input.role && input.role !== membership.role && updated.status === "ACTIVE") {
+    const org = await withDbRetry(() =>
+      prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } })
+    );
+    await enqueueOrganizationMemberNoticeEmail({
+      organizationId,
+      organizationName: org?.name ?? "the organization",
+      recipientEmail: membership.user.email,
+      role: input.role,
+      isNewUser: false
+    });
+  }
 
   return { userId: updated.userId, email: membership.user.email, role: updated.role, status: updated.status };
 };

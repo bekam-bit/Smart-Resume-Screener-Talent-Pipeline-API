@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/utils/password.js";
+import { ingestResumeEmbeddings } from "../src/modules/screening/embedding.service.js";
 
 const prisma = new PrismaClient();
 
@@ -173,6 +174,20 @@ async function main() {
         }
       }
     });
+  }
+
+  // 5b. Ensure pgvector embeddings and chunks exist for seeded resume
+  const existingChunks = await prisma.resumeChunk.count({ where: { resumeId: resume.id } });
+  if (existingChunks === 0) {
+    try {
+      await ingestResumeEmbeddings(
+        resume.id,
+        "Alex Candidate\nSenior Full Stack Engineer with 6+ years building microservices in TypeScript, PostgreSQL, and React."
+      );
+      console.log("Seeded pgvector embeddings into ResumeChunk for candidate resume.");
+    } catch (err) {
+      console.warn("Could not seed vector embeddings (API key or network issue):", err instanceof Error ? err.message : String(err));
+    }
   }
 
   // 6. Seed Application & Screening Run

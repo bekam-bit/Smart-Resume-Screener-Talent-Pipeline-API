@@ -17,8 +17,11 @@ describe.runIf(databaseAvailable)("Feature F: EmailOutbox and Email Worker", () 
 
   let sendEmailSpy: ReturnType<typeof vi.spyOn>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     sendEmailSpy = vi.spyOn(resendProvider, "sendEmail").mockResolvedValue(undefined);
+    await prisma.emailOutbox.deleteMany({
+      where: { status: "PENDING" }
+    }).catch(() => {});
   });
 
   afterAll(async () => {

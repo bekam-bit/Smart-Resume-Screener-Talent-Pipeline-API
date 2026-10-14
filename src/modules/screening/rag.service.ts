@@ -80,17 +80,25 @@ Respond strictly in valid JSON matching this schema:
   if (completion) {
     try {
       const parsed = JSON.parse(completion) as Partial<RagScreeningResult>;
+      const recommendation =
+        parsed.recommendation === "ADVANCE" || parsed.recommendation === "REJECT"
+          ? parsed.recommendation
+          : "REVIEW";
+
+      // Suggested interview questions are only applicable for qualifying candidates, not rejected ones
+      const suggestedQuestions =
+        recommendation === "REJECT"
+          ? []
+          : Array.isArray(parsed.suggestedQuestions)
+            ? parsed.suggestedQuestions
+            : [`How does your background fit the responsibilities of ${jobTitle}?`];
+
       return {
         summary: parsed.summary ?? `Candidate evaluated for ${jobTitle} via RAG.`,
         strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ["Profile aligns with required experience"],
         gaps: Array.isArray(parsed.gaps) ? parsed.gaps : ["Verify specific domain tooling"],
-        recommendation:
-          parsed.recommendation === "ADVANCE" || parsed.recommendation === "REJECT"
-            ? parsed.recommendation
-            : "REVIEW",
-        suggestedQuestions: Array.isArray(parsed.suggestedQuestions)
-          ? parsed.suggestedQuestions
-          : [`How does your background fit the responsibilities of ${jobTitle}?`],
+        recommendation,
+        suggestedQuestions,
         groundedScore: typeof parsed.groundedScore === "number" ? parsed.groundedScore : deterministicScore,
         retrievedChunks,
         citedSources: Array.isArray(parsed.citedSources) ? parsed.citedSources : ["[Source Chunk 1]"],
@@ -116,7 +124,10 @@ Respond strictly in valid JSON matching this schema:
     strengths: retrievedChunks.slice(0, 3).map((c, i) => `[Source Chunk ${i + 1}] Relevant background: "${c.content.slice(0, 100)}..."`),
     gaps: ["Verify specific operational practices during interview stage."],
     recommendation,
-    suggestedQuestions: [`Can you detail your hands-on experience with the requirements of ${jobTitle}?`],
+    suggestedQuestions:
+      recommendation === "REJECT"
+        ? []
+        : [`Can you detail your hands-on experience with the requirements of ${jobTitle}?`],
     groundedScore: fallbackScore,
     retrievedChunks,
     citedSources: retrievedChunks.map((_, i) => `[Source Chunk ${i + 1}]`),
@@ -126,8 +137,9 @@ Respond strictly in valid JSON matching this schema:
 };
 
 /**
- * RAG Question-Answering: Allows authorized recruiters to query a candidate's resume
- * using semantic vector search and receive grounded answers with citations.
+ * RAG Question-Answering & Evaluation Reasoning:
+ * Allows authorized recruiters and organization admins to query candidate resume content
+ * OR challenge selection process checkpoints and scoring decisions with grounded reasoning and evidence.
  */
 export const askResumeQuestion = async (
   organizationId: string,
@@ -137,11 +149,34 @@ export const askResumeQuestion = async (
   question: string;
   answer: string;
   sources: Array<{ chunkIndex: number; snippet: string; similarity: number }>;
+  checkpointContext?: {
+    score: number | null;
+    recommendation: string;
+    matchedRequirements: string[];
+    unmetRequirements: string[];
+  };
 }> => {
   const application = await withDbRetry(() =>
     prisma.application.findFirst({
       where: { id: applicationId, job: { organizationId } },
-      select: { id: true, resumeId: true, job: { select: { title: true } } }
+      select: {
+        id: true,
+        resumeId: true,
+        job: {
+          select: {
+            title: true,
+            description: true,
+            requirements: {
+              select: { id: true, name: true, type: true, weight: true }
+            }
+          }
+        },
+        screeningRuns: {
+          where: { status: "COMPLETE" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
     })
   );
 
@@ -156,28 +191,84 @@ export const askResumeQuestion = async (
     .map((c, i) => `[Passage ${i + 1}] (Similarity ${c.similarity}):\n"${c.content}"`)
     .join("\n\n");
 
-  const prompt = `You are a recruitment assistant answering a recruiter's question about a candidate's resume for the role of ${application.job.title}.
-Answer strictly and solely from the provided passages.
-If the passages do not contain enough information to answer, explicitly state: "The candidate's resume does not contain information to answer this question."
+  // 2. Parse latest screening evaluation checkpoints
+  const latestRun = application.screeningRuns[0];
+  const breakdown = (latestRun?.scoreBreakdown as Record<string, unknown>) ?? {};
+  const evidence = (latestRun?.evidence as Record<string, unknown>) ?? {};
+  const matches = (breakdown.matches as Array<{ name: string; matched: boolean; type: string }>) ?? [];
+  const matchedRequirements = matches.filter((m) => m.matched).map((m) => m.name);
+  const unmetRequirements = matches.filter((m) => !m.matched).map((m) => m.name);
+  const evalScore = latestRun?.score !== null && latestRun?.score !== undefined ? Number(latestRun.score) : null;
+  const evalRecommendation = typeof evidence.recommendation === "string" ? evidence.recommendation : "REVIEW";
+  const evalSummary = typeof evidence.summary === "string" ? evidence.summary : "No automated screening summary recorded.";
+  const evalStrengths = Array.isArray(evidence.strengths) ? (evidence.strengths as string[]) : [];
+  const evalGaps = Array.isArray(evidence.gaps) ? (evidence.gaps as string[]) : [];
 
-Candidate Passages:
-${contextText || "No relevant passages found."}
+  const requirementsSummary = application.job.requirements.length > 0
+    ? application.job.requirements.map((r) => `- [${r.type}] ${r.name} (weight: ${r.weight})`).join("\n")
+    : "No explicit requirements configured.";
 
-Question:
+  const checkpointsSummary = matches.length > 0
+    ? matches.map((m) => `- ${m.name} [${m.type}]: ${m.matched ? "VERIFIED/MATCHED" : "UNMET/GAP"}`).join("\n")
+    : "No automated checkpoint evaluation available.";
+
+  const prompt = `You are a Principal Talent Acquisition Partner & Evaluation Reasoning Advisor for the position of "${application.job.title}".
+A recruiter or organization admin is asking a question about the candidate's background OR challenging the automated selection checkpoints, scoring, or qualification verdicts.
+
+ROLE REQUIREMENTS:
+${requirementsSummary}
+
+AUTOMATED SCREENING CHECKPOINTS & EVALUATION STATE:
+- Overall Score: ${evalScore !== null ? `${evalScore}%` : "Not evaluated yet"}
+- Recommendation: ${evalRecommendation}
+- Checkpoint Match Verification:
+${checkpointsSummary}
+- Identified Strengths: ${evalStrengths.join("; ") || "None"}
+- Identified Gaps / Unverified: ${evalGaps.join("; ") || "None"}
+- Screening Rationale: ${evalSummary}
+
+CANDIDATE RESUME PASSAGES (Retrieved by semantic search):
+${contextText || "No relevant resume passages retrieved."}
+
+RECRUITER QUESTION / CHALLENGE:
 ${question}
 
-Answer concisely in 2-4 sentences, referencing the relevant passage numbers (e.g. [Passage 1]) when citing information.`;
+INSTRUCTIONS:
+1. When the recruiter asks about candidate resume facts: answer accurately and concisely based on the resume passages, citing [Passage X].
+2. When the recruiter challenges, probes, or questions the selection process, checkpoints, score, or reasoning:
+   - Provide efficient, tailored reasoning explaining the checkpoint criteria and why the automated process assigned that status or score.
+   - Ground your answer in concrete evidence: contrast the screening criteria with what is actually stated (or omitted) in the candidate's resume passages (cite [Passage X]).
+   - If the candidate's resume shows related experience that partially satisfies an unmet checkpoint, highlight that nuance and explain why the checkpoint was conservative.
+3. If neither the resume passages nor the evaluation records contain relevant information, state: "The candidate's resume and screening records do not contain enough information to answer this question."
+4. Be concise, objective, transparent, and always reference evidence (e.g. [Passage 1] or checkpoint names).`;
 
   const completion = await completeChat([
-    { role: "system", content: "You answer questions strictly using provided passages." },
+    { role: "system", content: "You are an objective recruitment evaluation advisor synthesizing candidate resume evidence with screening checkpoints." },
     { role: "user", content: prompt }
   ]);
 
-  const answer =
-    completion ??
-    (chunks.length > 0
-      ? `Based on [Passage 1] (${Math.round(chunks[0]!.similarity * 100)}% match): "${chunks[0]!.content.slice(0, 200)}..."`
-      : "The candidate's resume does not contain relevant passages for this question.");
+  let answer = completion;
+  if (!answer) {
+    const isChallengeOrReviewQuestion = /why|score|checkpoint|require|evaluat|fail|miss|unmet|reason|gap|reject|shortlist|challenge|tradeoff/i.test(question);
+    if (isChallengeOrReviewQuestion && latestRun) {
+      const parts: string[] = [];
+      parts.push(`The candidate received an overall screening score of ${evalScore}%, with an automated recommendation of '${evalRecommendation}'.`);
+      if (evalGaps.length > 0) {
+        parts.push(`Identified gaps: ${evalGaps.join("; ")}.`);
+      }
+      if (unmetRequirements.length > 0) {
+        parts.push(`Unmet checkpoints: ${unmetRequirements.join(", ")}.`);
+      }
+      if (chunks.length > 0) {
+        parts.push(`Supporting resume evidence from [Passage 1]: "${chunks[0]!.content.slice(0, 160)}...".`);
+      }
+      answer = parts.join(" ");
+    } else if (chunks.length > 0) {
+      answer = `Based on [Passage 1] (${Math.round(chunks[0]!.similarity * 100)}% match): "${chunks[0]!.content.slice(0, 200)}..."`;
+    } else {
+      answer = "The candidate's resume does not contain relevant passages for this question.";
+    }
+  }
 
   return {
     question,
@@ -186,6 +277,14 @@ Answer concisely in 2-4 sentences, referencing the relevant passage numbers (e.g
       chunkIndex: c.chunkIndex,
       snippet: c.content.slice(0, 250),
       similarity: c.similarity
-    }))
+    })),
+    checkpointContext: latestRun
+      ? {
+          score: evalScore,
+          recommendation: evalRecommendation,
+          matchedRequirements,
+          unmetRequirements
+        }
+      : undefined
   };
 };

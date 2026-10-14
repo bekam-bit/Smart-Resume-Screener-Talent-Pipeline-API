@@ -5,6 +5,7 @@ import { withDbRetry } from "../../utils/db-retry.js";
 import { logger } from "../../utils/logger.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { completeChat } from "../../providers/openrouter.ai.js";
+import { notifyRecruitersShortlistReady } from "../notifications/applicant-notifications.service.js";
 import { runDeterministicMatcher } from "./deterministic-matcher.js";
 
 export type ReviewSeverity = "NONE" | "INFO" | "WARNING" | "CRITICAL";
@@ -158,6 +159,71 @@ export const evaluateReviewFlags = (params: {
     reviewSeverity,
     reviewReasons
   };
+};
+
+/**
+ * Detects score proximity, ties, and cutoff boundary contention across the ranked pool.
+ * If multiple applicants have tightly clustered scores or if candidates on either side
+ * of the shortlist cutoff have closely related scores (<= 3.0 points), flags them for
+ * human recruiter review so that arbitrary algorithmic cutoffs or tie-breakers do not
+ * exclude viable talent without human contextual evaluation.
+ */
+export const evaluateScoreContentionAndClustering = (
+  rankedItems: RankedCandidateItem[],
+  topCount: number,
+  minScore: number,
+  contentionMargin = 3.0
+): void => {
+  if (rankedItems.length === 0) return;
+
+  // 1. Cutoff boundary contention:
+  // If the score difference between the last shortlisted candidate (Rank #topCount)
+  // and the first candidate outside the shortlist (Rank #topCount + 1) is <= contentionMargin,
+  // both sides of the boundary are in active contention.
+  if (rankedItems.length > topCount && topCount > 0) {
+    const lastShortlisted = rankedItems[topCount - 1]!;
+    const firstExcluded = rankedItems[topCount]!;
+
+    if (lastShortlisted.compositeScore >= minScore) {
+      const cutoffDelta = Math.abs(lastShortlisted.compositeScore - firstExcluded.compositeScore);
+      if (cutoffDelta <= contentionMargin) {
+        // Find all contenders clustered within contentionMargin of the cutoff score
+        const boundaryContenders = rankedItems.filter(
+          (c) => Math.abs(c.compositeScore - lastShortlisted.compositeScore) <= contentionMargin
+        );
+
+        for (const cand of boundaryContenders) {
+          cand.flagForReview = true;
+          if (cand.reviewSeverity === "NONE" || cand.reviewSeverity === "INFO") {
+            cand.reviewSeverity = "WARNING";
+          }
+          const reason = `Shortlist cutoff score contention: Rank #${cand.rank} (${cand.compositeScore}%) is within ${cutoffDelta.toFixed(1)} pts of the cutoff boundary (Rank #${topCount} vs #${topCount + 1}). Human recruiter review recommended to compare qualitative background before finalizing selection.`;
+          if (!cand.reviewReasons.some((r) => r.includes("cutoff score contention"))) {
+            cand.reviewReasons.push(reason);
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Dense score ties and micro-clusters across adjacent applicants (score difference <= 1.0 point)
+  for (let i = 0; i < rankedItems.length - 1; i++) {
+    const curr = rankedItems[i]!;
+    const next = rankedItems[i + 1]!;
+    if (curr.compositeScore >= minScore && Math.abs(curr.compositeScore - next.compositeScore) <= 1.0) {
+      const tieReason = `Score tie / proximity: Rank #${curr.rank} (${curr.compositeScore}%) and Rank #${next.rank} (${next.compositeScore}%) have virtually identical scores (diff ≤ 1.0 pt). Recruiter review recommended for differentiating context.`;
+      if (!curr.reviewReasons.some((r) => r.includes("Score tie / proximity"))) {
+        curr.reviewReasons.push(tieReason);
+        if (curr.reviewSeverity === "NONE") curr.reviewSeverity = "INFO";
+        curr.flagForReview = true;
+      }
+      if (!next.reviewReasons.some((r) => r.includes("Score tie / proximity"))) {
+        next.reviewReasons.push(tieReason);
+        if (next.reviewSeverity === "NONE") next.reviewSeverity = "INFO";
+        next.flagForReview = true;
+      }
+    }
+  }
 };
 
 /**
@@ -423,7 +489,13 @@ export const compareAndShortlistJobApplications = async (
       summary = `Evaluated against ${job.requirements.length} job requirements with score of ${deterministic.score}%.`;
       strengths = matchedRequirements.map((r) => `Aligned with requirement: ${r}`);
       gaps = unmetRequirements.map((r) => `Missing mention: ${r}`);
-      suggestedQuestions = unmetRequiredNames.slice(0, 2).map((r) => `Can you explain your experience with ${r}?`);
+      if (unmetRequiredNames.length > 0) {
+        suggestedQuestions = unmetRequiredNames.slice(0, 2).map((r) => `Can you explain your experience with ${r}?`);
+      } else if (matchedRequirements.length > 0) {
+        suggestedQuestions = [
+          `Can you detail a complex challenge you solved using ${matchedRequirements.slice(0, 2).join(" and ")} in production?`
+        ];
+      }
     }
 
     // 2. Evaluate Edge Cases & Review Flags
@@ -487,6 +559,9 @@ export const compareAndShortlistJobApplications = async (
     item.rank = index + 1;
   });
 
+  // Evaluate candidate score clustering and cutoff boundary contention
+  evaluateScoreContentionAndClustering(rankedItems, topCount, minScore);
+
   // 4. Partition into Shortlist vs Others based on topCount and minScore
   const shortlisted: RankedCandidateItem[] = [];
   const otherCandidates: RankedCandidateItem[] = [];
@@ -494,9 +569,16 @@ export const compareAndShortlistJobApplications = async (
   for (const item of rankedItems) {
     if (shortlisted.length < topCount && item.compositeScore >= minScore) {
       item.shortlisted = true;
+      if (item.suggestedQuestions.length === 0) {
+        item.suggestedQuestions = [
+          `Can you describe how you applied ${item.matchedRequirements.slice(0, 2).join(" and ") || "your technical skills"} to deliver measurable impact in production?`
+        ];
+      }
       shortlisted.push(item);
     } else {
       item.shortlisted = false;
+      // Tailored interview questions are solely for shortlisted contenders; clear for non-shortlisted
+      item.suggestedQuestions = [];
       otherCandidates.push(item);
     }
   }
@@ -531,6 +613,10 @@ export const compareAndShortlistJobApplications = async (
 
             cand.status = "SHORTLISTED";
             autoAdvancedCount++;
+            // NOTE: No candidate-facing email is sent at the SHORTLISTED stage.
+            // Shortlisting is an internal talent pipeline milestone for recruiter review.
+            // Candidate notification is sent at the INTERVIEW invitation step to avoid
+            // duplicate or premature disclosure before the recruiter has confirmed next steps.
           }
         })
       );
@@ -567,6 +653,18 @@ export const compareAndShortlistJobApplications = async (
     rankedItems.length > 0
       ? Math.round((rankedItems.reduce((sum, i) => sum + i.compositeScore, 0) / rankedItems.length) * 100) / 100
       : 0;
+
+  // 7. Notify recruiters/admins when shortlist is ready
+  if (shortlisted.length > 0) {
+    await notifyRecruitersShortlistReady({
+      organizationId,
+      jobId: job.id,
+      jobTitle: job.title,
+      shortlistedCount: shortlisted.length,
+      averageScore: avgScore,
+      executiveSummaryOverview: executiveSummary?.overview
+    });
+  }
 
   logger.info("job_applications_compared", {
     jobId,

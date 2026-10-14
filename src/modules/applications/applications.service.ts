@@ -5,6 +5,7 @@ import { AppError } from "../../utils/app-error.js";
 import { withDbRetry } from "../../utils/db-retry.js";
 import type { Pagination } from "../../schemas/common.schema.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { enqueueApplicationStatusEmail } from "../notifications/applicant-notifications.service.js";
 import type {
   AddNoteInput,
   ApplyToJobInput,
@@ -342,6 +343,18 @@ export const changeApplicationStatus = async (
     resourceType: "Application",
     resourceId: application.id,
     metadata: { from: application.status, to: input.status }
+  });
+
+  // Enqueue notification email for candidate-facing milestones (INTERVIEW, REJECTED, OFFER).
+  // SHORTLISTED is an internal pipeline milestone and does not trigger a candidate email —
+  // the INTERVIEW invitation email consolidates both shortlisting and invitation context.
+  await enqueueApplicationStatusEmail({
+    candidateEmail: updated.candidate.email,
+    candidateName: updated.candidate.candidateProfile?.name || updated.candidate.email.split("@")[0] || "Candidate",
+    jobTitle: updated.job.title,
+    newStatus: input.status,
+    reason: input.reason,
+    applicationId: updated.id
   });
 
   return recruiterApplication(updated);

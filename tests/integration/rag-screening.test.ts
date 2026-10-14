@@ -106,10 +106,34 @@ describe.runIf(databaseAvailable)("RAG & pgvector: Embeddings, Semantic Search &
       .send({ resumeId, coverLetter: "Excited to work on your RAG and vector systems!" });
 
     applicationId = applyRes.body.application.id;
+
+    // 7. Seed completed Screening Run for checkpoint challenge and evaluation reasoning tests
+    await prisma.screeningRun.create({
+      data: {
+        applicationId,
+        status: "COMPLETE",
+        score: 88,
+        scoreBreakdown: {
+          matches: [
+            { name: "PostgreSQL pgvector", matched: true, type: "REQUIRED" },
+            { name: "OpenRouter & LLM Inference", matched: true, type: "REQUIRED" },
+            { name: "TypeScript", matched: false, type: "PREFERRED" }
+          ]
+        },
+        evidence: {
+          recommendation: "ADVANCE",
+          strengths: ["Strong vector DB and pgvector background", "Deep LLM inference knowledge"],
+          gaps: ["No direct production TypeScript references found in resume"],
+          summary: "Demonstrates deep LLM and vector search proficiency with slight gap in TypeScript."
+        },
+        provider: "deterministic+rag"
+      }
+    });
   });
 
   afterAll(async () => {
     if (applicationId) {
+      await prisma.screeningRun.deleteMany({ where: { applicationId } });
       await prisma.application.deleteMany({ where: { id: applicationId } });
     }
     if (resumeId) {
@@ -230,6 +254,22 @@ describe.runIf(databaseAvailable)("RAG & pgvector: Embeddings, Semantic Search &
       expect(res.body.data.sources.length).toBeGreaterThan(0);
       expect(res.body.data.sources[0].snippet).toBeDefined();
       expect(res.body.data.sources[0].similarity).toBeGreaterThan(0);
+    });
+
+    it("allows recruiters to challenge selection checkpoints with tailored reasoning and evidence", async () => {
+      const res = await request(app)
+        .post(`${orgBase}/${organizationId}/applications/${applicationId}/ask`)
+        .set(auth())
+        .send({ question: "Why was this candidate given their score? Challenge the requirement checkpoints." })
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.answer).toBeDefined();
+      expect(typeof res.body.data.answer).toBe("string");
+      expect(res.body.data.sources.length).toBeGreaterThan(0);
+      expect(res.body.data.checkpointContext).toBeDefined();
+      expect(res.body.data.checkpointContext.score).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(res.body.data.checkpointContext.matchedRequirements)).toBe(true);
     });
 
     it("enforces tenant boundary security on candidate resume queries", async () => {
