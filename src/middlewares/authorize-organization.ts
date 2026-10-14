@@ -21,11 +21,12 @@ const loadMembership = async (request: Parameters<RequestHandler>[0]) => {
     throw new AppError("INVALID_RESOURCE", "Organization ID is required", 400);
   }
 
+  const userId = request.userId;
   const membership = await withDbRetry(() =>
     prisma.organizationMembership.findUnique({
       where: {
         userId_organizationId: {
-          userId: request.userId,
+          userId,
           organizationId
         }
       }

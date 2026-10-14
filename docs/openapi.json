@@ -1,0 +1,470 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Smart Resume Screener & Talent Pipeline API",
+    "version": "1.0.0",
+    "description": "Production-grade REST API for an explainable, recruiter-controlled talent acquisition pipeline featuring automated deterministic and AI-assisted resume screening, multi-tenant RBAC, and background workers."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000/api/v1",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "VALIDATION_ERROR" },
+              "message": { "type": "string", "example": "Invalid request payload" },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["success", "error"]
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "pageSize": { "type": "integer", "example": 20 },
+          "total": { "type": "integer", "example": 45 },
+          "totalPages": { "type": "integer", "example": 3 }
+        },
+        "required": ["page", "pageSize", "total", "totalPages"]
+      }
+    }
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "summary": "Liveness Probe",
+        "tags": ["Health"],
+        "responses": {
+          "200": { "description": "Process is alive" }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness Probe",
+        "tags": ["Health"],
+        "responses": {
+          "200": { "description": "Database and storage are connected and ready" }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Account created and verification email queued" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user credentials",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Access token issued and refresh cookie set" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh session and issue new access token",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "New access token returned" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Revoke current refresh session",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Session revoked" }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "summary": "Verify email with one-time token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": { "token": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email verified" }
+        }
+      }
+    },
+    "/organizations": {
+      "get": {
+        "summary": "List organizations for active user",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Organizations list" } }
+      },
+      "post": {
+        "summary": "Create an organization",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "slug": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Organization created" } }
+      }
+    },
+    "/organizations/{organizationId}/jobs": {
+      "get": {
+        "summary": "List jobs for an organization",
+        "tags": ["Jobs"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "Organization jobs" } }
+      },
+      "post": {
+        "summary": "Create a new job in draft status",
+        "tags": ["Jobs"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Job created" } }
+      }
+    },
+    "/organizations/{organizationId}/jobs/{jobId}/status": {
+      "patch": {
+        "summary": "Update job status (e.g. PUBLISHED)",
+        "tags": ["Jobs"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED", "PAUSED", "CLOSED"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Job status updated" } }
+      }
+    },
+    "/jobs": {
+      "get": {
+        "summary": "Public job board search",
+        "tags": ["Jobs"],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Paginated list of published jobs" } }
+      }
+    },
+    "/me/resumes": {
+      "get": {
+        "summary": "List candidate uploaded resumes",
+        "tags": ["Resumes"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Resumes list" } }
+      },
+      "post": {
+        "summary": "Upload candidate resume (PDF or DOCX)",
+        "tags": ["Resumes"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["resume"],
+                "properties": {
+                  "resume": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Resume uploaded and stored in private S3" } }
+      }
+    },
+    "/jobs/{jobId}/applications": {
+      "post": {
+        "summary": "Apply to a published job",
+        "tags": ["Applications"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["resumeId"],
+                "properties": {
+                  "resumeId": { "type": "string", "format": "uuid" },
+                  "coverLetter": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Application submitted" } }
+      }
+    },
+    "/organizations/{organizationId}/applications/{applicationId}/screen": {
+      "post": {
+        "summary": "Trigger automated resume screening for an application",
+        "tags": ["Screening"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "applicationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "202": { "description": "Screening run queued for background worker" } }
+      }
+    },
+    "/organizations/{organizationId}/applications/{applicationId}/screening-runs": {
+      "get": {
+        "summary": "List all screening runs for an application",
+        "tags": ["Screening"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "applicationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "List of screening runs with scores and evidence" } }
+      }
+    },
+    "/organizations/{organizationId}/applications/{applicationId}/ask": {
+      "post": {
+        "summary": "Ask a question about a candidate's resume using pgvector RAG and OpenRouter",
+        "tags": ["Screening", "RAG"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "applicationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["question"],
+                "properties": {
+                  "question": { "type": "string", "minLength": 3, "maxLength": 1000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grounded answer citing retrieved resume passages with similarity scores",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "question": { "type": "string" },
+                        "answer": { "type": "string" },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "chunkIndex": { "type": "integer" },
+                              "snippet": { "type": "string" },
+                              "similarity": { "type": "number" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organizationId}/jobs/{jobId}/candidates/compare": {
+      "get": {
+        "summary": "Compare and rank all job candidates with edge case review flags",
+        "tags": ["Screening", "Shortlisting"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "topCount", "in": "query", "schema": { "type": "integer", "default": 5 } },
+          { "name": "minScore", "in": "query", "schema": { "type": "number", "default": 60 } },
+          { "name": "generateSummary", "in": "query", "schema": { "type": "boolean", "default": true }, "description": "Generate Executive AI Comparative Summary across top candidates" }
+        ],
+        "responses": {
+          "200": { "description": "Ranked candidates list partitioned into shortlist and other candidates with review flags and Executive AI Comparative Summary" }
+        }
+      }
+    },
+    "/organizations/{organizationId}/jobs/{jobId}/shortlist": {
+      "post": {
+        "summary": "Shortlist top job candidates and optionally auto-advance unflagged applicants",
+        "tags": ["Screening", "Shortlisting"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topCount": { "type": "integer", "default": 5 },
+                  "minScore": { "type": "number", "default": 60 },
+                  "autoAdvance": { "type": "boolean", "default": false },
+                  "generateSummary": { "type": "boolean", "default": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Shortlist results with metrics, auto-advanced counts, and Executive AI Comparative Summary" }
+        }
+      }
+    },
+    "/organizations/{organizationId}/audit-logs": {
+      "get": {
+        "summary": "Query audit logs for an organization (Admin only)",
+        "tags": ["Audit"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "organizationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer" } },
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "resourceType", "in": "query", "schema": { "type": "string" } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": { "200": { "description": "Paginated audit logs list" } }
+      }
+    }
+  }
+}

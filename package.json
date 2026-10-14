@@ -18,7 +18,8 @@
     "db:seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:watch": "node node_modules/vitest/vitest.mjs",
-    "worker:email": "node node_modules/tsx/dist/cli.mjs src/workers/email.worker.ts"
+    "worker:email": "node node_modules/tsx/dist/cli.mjs src/workers/email.worker.ts",
+    "worker:screening": "node node_modules/tsx/dist/cli.mjs src/workers/screening.worker.ts"
   },
   "prisma": {
     "seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"
@@ -35,8 +36,10 @@
     "hash-wasm": "^4.12.0",
     "helmet": "^8.1.0",
     "jose": "^6.1.0",
-    "mammoth": "^1.13.0",
+    "mammoth": "^0.3.29",
     "multer": "^2.4.0",
+    "openai": "^7.33.0",
+    "pg": "^8.23.1",
     "resend": "^6.4.2",
     "unpdf": "^1.8.1",
     "zod": "^4.1.5"
@@ -47,10 +50,10 @@
     "@types/multer": "^2.3.0",
     "@types/node": "^24.5.2",
     "@types/supertest": "^6.0.3",
-    "prisma": "^6.17.0",
+    "prisma": "^6.12.0",
     "supertest": "^7.3.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11"
   }
 }

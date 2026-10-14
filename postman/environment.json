@@ -1,0 +1,42 @@
+{
+  "id": "smart-resume-screener-local-env",
+  "name": "Smart Resume Screener Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/api/v1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "organizationId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "jobId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "resumeId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "applicationId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ]
+}
