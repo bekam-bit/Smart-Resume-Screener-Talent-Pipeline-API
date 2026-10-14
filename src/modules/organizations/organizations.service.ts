@@ -1,7 +1,8 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
 import { isUniqueConstraintError, withDbRetry } from "../../utils/db-retry.js";
-import { sendPasswordResetEmail } from "../../providers/resend.email.js";
+import { renderInvitationEmail } from "../../providers/resend.email.js";
+import { enqueueEmail } from "../notifications/outbox.service.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { createAuthToken } from "../auth/auth.service.js";
 import type { Pagination } from "../../schemas/common.schema.js";
@@ -54,13 +55,16 @@ export const createOrganization = async (actorId: string, input: CreateOrganizat
 
   try {
     const organization = await withDbRetry(() =>
-      prisma.$transaction(async (transaction) => {
-        const created = await transaction.organization.create({ data: { name: input.name, slug } });
-        await transaction.organizationMembership.create({
-          data: { userId: actorId, organizationId: created.id, role: "ADMIN", status: "ACTIVE" }
-        });
-        return created;
-      })
+      prisma.$transaction(
+        async (transaction) => {
+          const created = await transaction.organization.create({ data: { name: input.name, slug } });
+          await transaction.organizationMembership.create({
+            data: { userId: actorId, organizationId: created.id, role: "ADMIN", status: "ACTIVE" }
+          });
+          return created;
+        },
+        { maxWait: 15000, timeout: 30000 }
+      )
     );
 
     await recordAudit({
@@ -166,11 +170,17 @@ export const listMembers = async (organizationId: string, pagination: Pagination
 
 const deliverInvite = async (userId: string, email: string) => {
   const token = await createAuthToken(userId, "PASSWORD_RESET");
+  const rendered = renderInvitationEmail(email, token);
   try {
-    await sendPasswordResetEmail(email, token);
+    await enqueueEmail({
+      recipient: rendered.recipient,
+      subject: rendered.subject,
+      bodyHtml: rendered.bodyHtml,
+      bodyText: rendered.bodyText,
+      metadata: { userId, purpose: "ORGANIZATION_INVITATION" }
+    });
   } catch (error) {
-    // Delivery must not fail the membership change — the token is still valid.
-    console.error("Member invitation delivery failed", error instanceof Error ? error.message : "unknown error");
+    console.error("Member invitation outbox enqueue failed", error instanceof Error ? error.message : "unknown error");
   }
 };
 

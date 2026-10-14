@@ -17,7 +17,8 @@
     "db:studio": "node node_modules/prisma/build/index.js studio",
     "db:seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "test": "node node_modules/vitest/vitest.mjs run",
-    "test:watch": "node node_modules/vitest/vitest.mjs"
+    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "worker:email": "node node_modules/tsx/dist/cli.mjs src/workers/email.worker.ts"
   },
   "prisma": {
     "seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"

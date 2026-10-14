@@ -10,6 +10,8 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { jobsRouter } from "./modules/jobs/jobs.routes.js";
 import { organizationsRouter } from "./modules/organizations/organizations.routes.js";
 import { profileRouter } from "./modules/profile/profile.routes.js";
+import { candidateApplicationsRouter } from "./modules/applications/candidate-applications.routes.js";
+import { organizationApplicationsRouter } from "./modules/applications/applications.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,7 +34,9 @@ if (env.NODE_ENV === "development") {
 app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, authRouter);
 app.use(`${env.API_PREFIX}/organizations`, organizationsRouter);
+app.use(`${env.API_PREFIX}/organizations`, organizationApplicationsRouter);
 app.use(`${env.API_PREFIX}/me`, profileRouter);
+app.use(`${env.API_PREFIX}`, candidateApplicationsRouter);
 app.use(`${env.API_PREFIX}`, jobsRouter);
 
 app.use((_request, response) => {

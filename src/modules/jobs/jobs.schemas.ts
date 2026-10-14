@@ -53,20 +53,20 @@ export const updateRequirementSchema = requirementInputSchema
     { message: "Provide at least one field to update" }
   );
 
-export const organizationJobsParamsSchema = z.object({ organizationId: z.string().uuid() });
+export const organizationJobsParamsSchema = z.object({ organizationId: z.string()});
 
 export const organizationJobParamsSchema = z.object({
-  organizationId: z.string().uuid(),
-  jobId: z.string().uuid()
+  organizationId: z.string(),
+  jobId: z.string()
 });
 
 export const jobRequirementParamsSchema = z.object({
-  organizationId: z.string().uuid(),
-  jobId: z.string().uuid(),
-  requirementId: z.string().uuid()
+  organizationId: z.string(),
+  jobId: z.string(),
+  requirementId: z.string()
 });
 
-export const publicJobParamsSchema = z.object({ jobId: z.string().uuid() });
+export const publicJobParamsSchema = z.object({ jobId: z.string()});
 
 export const listOrgJobsQuerySchema = paginationSchema.extend({
   status: jobStatusSchema.optional(),

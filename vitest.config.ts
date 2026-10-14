@@ -5,8 +5,10 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     // Integration suites run against a remote Neon database that cold-starts
-    // after idle periods; the first query of a run can legitimately take ~10s.
-    testTimeout: 30_000,
-    hookTimeout: 60_000
+    // after idle periods; running test files sequentially avoids connection
+    // contention and transaction timeouts.
+    fileParallelism: false,
+    testTimeout: 60_000,
+    hookTimeout: 90_000
   }
 });

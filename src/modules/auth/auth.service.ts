@@ -6,7 +6,8 @@ import { AppError } from "../../utils/app-error.js";
 import { createOneTimeToken, hashOneTimeToken } from "../../utils/auth-secrets.js";
 import { isUniqueConstraintError, withDbRetry } from "../../utils/db-retry.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../../providers/resend.email.js";
+import { renderPasswordResetEmail, renderVerificationEmail } from "../../providers/resend.email.js";
+import { enqueueEmail } from "../notifications/outbox.service.js";
 import { createAccessToken, createRefreshToken, hashRefreshToken } from "./auth.tokens.js";
 import type { LoginInput, RegisterInput, ResetPasswordInput, TokenInput } from "./auth.schemas.js";
 
@@ -63,10 +64,17 @@ export const register = async ({ email, password, name }: RegisterInput) => {
       })
     );
     const verificationToken = await createAuthToken(user.id, "EMAIL_VERIFICATION");
+    const rendered = renderVerificationEmail(user.email, verificationToken);
     try {
-      await sendVerificationEmail(user.email, verificationToken);
+      await enqueueEmail({
+        recipient: rendered.recipient,
+        subject: rendered.subject,
+        bodyHtml: rendered.bodyHtml,
+        bodyText: rendered.bodyText,
+        metadata: { userId: user.id, purpose: "EMAIL_VERIFICATION" }
+      });
     } catch (error) {
-      console.error("Verification email delivery failed", error instanceof Error ? error.message : "unknown error");
+      console.error("Verification email outbox enqueue failed", error instanceof Error ? error.message : "unknown error");
     }
     return { user: publicUser(user), verificationToken };
   } catch (error) {
@@ -107,10 +115,17 @@ export const requestPasswordReset = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return undefined;
   const token = await createAuthToken(user.id, "PASSWORD_RESET");
+  const rendered = renderPasswordResetEmail(user.email, token);
   try {
-    await sendPasswordResetEmail(user.email, token);
+    await enqueueEmail({
+      recipient: rendered.recipient,
+      subject: rendered.subject,
+      bodyHtml: rendered.bodyHtml,
+      bodyText: rendered.bodyText,
+      metadata: { userId: user.id, purpose: "PASSWORD_RESET" }
+    });
   } catch (error) {
-    console.error("Password reset email delivery failed", error instanceof Error ? error.message : "unknown error");
+    console.error("Password reset outbox enqueue failed", error instanceof Error ? error.message : "unknown error");
   }
   return token;
 };
@@ -120,10 +135,17 @@ export const resendVerificationEmail = async (email: string) => {
   // Silently no-op for unknown emails or already-verified accounts (security — prevents enumeration)
   if (!user || user.emailVerifiedAt) return;
   const token = await createAuthToken(user.id, "EMAIL_VERIFICATION");
+  const rendered = renderVerificationEmail(user.email, token);
   try {
-    await sendVerificationEmail(user.email, token);
+    await enqueueEmail({
+      recipient: rendered.recipient,
+      subject: rendered.subject,
+      bodyHtml: rendered.bodyHtml,
+      bodyText: rendered.bodyText,
+      metadata: { userId: user.id, purpose: "EMAIL_VERIFICATION" }
+    });
   } catch (error) {
-    console.error("Resend verification email delivery failed", error instanceof Error ? error.message : "unknown error");
+    console.error("Resend verification outbox enqueue failed", error instanceof Error ? error.message : "unknown error");
   }
 };
 

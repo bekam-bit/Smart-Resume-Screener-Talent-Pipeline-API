@@ -35,7 +35,7 @@ export const createTestUser = async (label = "user") => {
 /** Removes everything a test user created, in dependency order. */
 export const removeTestUser = async (userId: string, organizationIds: string[] = []) => {
   try {
-    for (const organizationId of organizationIds) {
+    for (const organizationId of organizationIds.filter(Boolean)) {
       const jobs = await prisma.job.findMany({ where: { organizationId }, select: { id: true } });
       const jobIds = jobs.map((job) => job.id);
       if (jobIds.length) {

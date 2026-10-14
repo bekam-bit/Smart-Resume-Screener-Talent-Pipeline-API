@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma.js";
 import type { OrganizationPermission } from "../modules/organizations/permissions.js";
 import { roleHasPermission } from "../modules/organizations/permissions.js";
 import { AppError } from "../utils/app-error.js";
+import { withDbRetry } from "../utils/db-retry.js";
 
 const routeParam = (value: string | string[] | undefined) =>
   typeof value === "string" ? value : undefined;
@@ -20,14 +21,16 @@ const loadMembership = async (request: Parameters<RequestHandler>[0]) => {
     throw new AppError("INVALID_RESOURCE", "Organization ID is required", 400);
   }
 
-  const membership = await prisma.organizationMembership.findUnique({
-    where: {
-      userId_organizationId: {
-        userId: request.userId,
-        organizationId
+  const membership = await withDbRetry(() =>
+    prisma.organizationMembership.findUnique({
+      where: {
+        userId_organizationId: {
+          userId: request.userId,
+          organizationId
+        }
       }
-    }
-  });
+    })
+  );
 
   if (!membership || membership.status !== "ACTIVE") {
     throw new AppError("ORGANIZATION_NOT_FOUND", "Organization not found", 404);
@@ -60,16 +63,45 @@ export const requireOrganizationJobPermission = (permission: OrganizationPermiss
       }
 
       const organizationId = request.organizationId!;
-      const job = await prisma.job.findFirst({
-        where: { id: routeParam(request.params.jobId), organizationId },
-        select: { id: true }
-      });
+      const job = await withDbRetry(() =>
+        prisma.job.findFirst({
+          where: { id: routeParam(request.params.jobId), organizationId },
+          select: { id: true }
+        })
+      );
 
       if (!job) {
         throw new AppError("JOB_NOT_FOUND", "Job not found", 404);
       }
 
       request.jobId = job.id;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+
+export const requireOrganizationApplicationPermission = (permission: OrganizationPermission): RequestHandler =>
+  async (request, _response, next) => {
+    try {
+      const membership = await loadMembership(request);
+      if (!roleHasPermission(membership.role, permission)) {
+        throw new AppError("FORBIDDEN", "You do not have permission for this organization", 403);
+      }
+
+      const organizationId = request.organizationId!;
+      const application = await withDbRetry(() =>
+        prisma.application.findFirst({
+          where: { id: routeParam(request.params.applicationId), job: { organizationId } },
+          select: { id: true }
+        })
+      );
+
+      if (!application) {
+        throw new AppError("APPLICATION_NOT_FOUND", "Application not found", 404);
+      }
+
+      request.applicationId = application.id;
       next();
     } catch (error) {
       next(error);

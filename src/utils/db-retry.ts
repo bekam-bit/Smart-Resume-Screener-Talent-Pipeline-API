@@ -7,11 +7,11 @@ import { Prisma } from "@prisma/client";
  * compute instance is cold-starting after its idle auto-suspend window.
  */
 // P100x = connection/pool failures, P1017 = engine closed the connection,
-// P2024 = pool timeout, P2034/P2037 = transaction-level failures caused by a
+// P2024 = pool timeout, P2028 = transaction api error/timeout, P2034/P2037 = transaction-level failures caused by a
 // dropped connection, P5000/P5001 = server-side database in transition.
-const TRANSIENT_PRISMA_CODES = new Set(["P1001", "P1002", "P1008", "P1009", "P1017", "P2024", "P2034", "P2037", "P5000", "P5001"]);
+const TRANSIENT_PRISMA_CODES = new Set(["P1001", "P1002", "P1008", "P1009", "P1017", "P2024", "P2028", "P2034", "P2037", "P5000", "P5001"]);
 const TRANSIENT_MESSAGE_PATTERN =
-  /can'?t reach database server|connection terminated|connection reset|connection refused|econnreset|etimedout|timed out fetching a new connection|socket hang up|server has closed the connection|transaction (api )?error/i;
+  /can'?t reach database server|connection terminated|connection reset|connection refused|econnreset|etimedout|timed out fetching a new connection|socket hang up|server has closed the connection|transaction (api )?error|transaction already closed|unable to start a transaction/i;
 
 export const isUniqueConstraintError = (error: unknown): boolean =>
   (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") ||
@@ -19,7 +19,9 @@ export const isUniqueConstraintError = (error: unknown): boolean =>
 
 export const isTransientDatabaseError = (error: unknown): boolean => {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return TRANSIENT_PRISMA_CODES.has(error.code) || error.code.startsWith("P100");
+    if (TRANSIENT_PRISMA_CODES.has(error.code) || error.code.startsWith("P100") || TRANSIENT_MESSAGE_PATTERN.test(error.message)) {
+      return true;
+    }
   }
   if (error instanceof Prisma.PrismaClientInitializationError) return true;
   if (error instanceof Error) return TRANSIENT_MESSAGE_PATTERN.test(error.message);

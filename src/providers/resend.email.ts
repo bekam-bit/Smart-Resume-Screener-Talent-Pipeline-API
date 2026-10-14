@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : undefined;
 
-const sendEmail = async (input: { to: string; subject: string; html: string; text: string }) => {
+export const sendEmail = async (input: { to: string; subject: string; html: string; text: string }) => {
   if (!resend) {
     throw new Error("RESEND_API_KEY is not configured");
   }
@@ -266,13 +266,13 @@ const passwordResetHtml = (email: string, url: string) =>
 //  Both email types resolve to the same demo page (auth-demo.html)
 //  distinguished by the ?type= query param so the UI auto-routes
 // ─────────────────────────────────────────────────────────────
-export const sendVerificationEmail = (email: string, token: string) => {
+export const renderVerificationEmail = (email: string, token: string) => {
   const url = `${env.FRONTEND_APP_URL}/auth-demo.html?token=${encodeURIComponent(token)}&type=verify`;
-  return sendEmail({
-    to: email,
+  return {
+    recipient: email,
     subject: "Verify your Smart Resume Screener account",
-    html: verificationHtml(email, url),
-    text: [
+    bodyHtml: verificationHtml(email, url),
+    bodyText: [
       "Verify your Smart Resume Screener account",
       "",
       `Hi! Click the link below to verify ${email} and activate your account.`,
@@ -282,16 +282,16 @@ export const sendVerificationEmail = (email: string, token: string) => {
       "",
       "If you didn't create an account, you can safely ignore this email."
     ].join("\n")
-  });
+  };
 };
 
-export const sendPasswordResetEmail = (email: string, token: string) => {
+export const renderPasswordResetEmail = (email: string, token: string) => {
   const url = `${env.FRONTEND_APP_URL}/auth-demo.html?token=${encodeURIComponent(token)}&type=reset`;
-  return sendEmail({
-    to: email,
+  return {
+    recipient: email,
     subject: "Reset your Smart Resume Screener password",
-    html: passwordResetHtml(email, url),
-    text: [
+    bodyHtml: passwordResetHtml(email, url),
+    bodyText: [
       "Reset your Smart Resume Screener password",
       "",
       `We received a password reset request for ${email}.`,
@@ -302,5 +302,42 @@ export const sendPasswordResetEmail = (email: string, token: string) => {
       "",
       "If you didn't request this, your password has not been changed — you can safely ignore this email."
     ].join("\n")
+  };
+};
+
+export const renderInvitationEmail = (email: string, token: string, orgName?: string) => {
+  const url = `${env.FRONTEND_APP_URL}/auth-demo.html?token=${encodeURIComponent(token)}&type=reset`;
+  return {
+    recipient: email,
+    subject: orgName ? `Invitation to join ${orgName} on Smart Resume Screener` : "Invitation to join Smart Resume Screener",
+    bodyHtml: passwordResetHtml(email, url),
+    bodyText: [
+      orgName ? `Invitation to join ${orgName}` : "Invitation to Smart Resume Screener",
+      "",
+      `You have been invited to join ${orgName ?? "Smart Resume Screener"}. Click the link below to activate your account and set your password:`,
+      url,
+      "",
+      "This link expires in 15 minutes."
+    ].join("\n")
+  };
+};
+
+export const sendVerificationEmail = (email: string, token: string) => {
+  const rendered = renderVerificationEmail(email, token);
+  return sendEmail({
+    to: rendered.recipient,
+    subject: rendered.subject,
+    html: rendered.bodyHtml,
+    text: rendered.bodyText
+  });
+};
+
+export const sendPasswordResetEmail = (email: string, token: string) => {
+  const rendered = renderPasswordResetEmail(email, token);
+  return sendEmail({
+    to: rendered.recipient,
+    subject: rendered.subject,
+    html: rendered.bodyHtml,
+    text: rendered.bodyText
   });
 };
