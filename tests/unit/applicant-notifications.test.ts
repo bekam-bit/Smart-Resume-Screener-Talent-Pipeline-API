@@ -96,7 +96,8 @@ describe("Applicant and Organization Notifications (Unit)", () => {
         attempts: 0,
         lastError: null,
         nextAttemptAt: new Date(),
-        processedAt: null,
+        maxAttempts: 5,
+        sentAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -156,7 +157,8 @@ describe("Applicant and Organization Notifications (Unit)", () => {
         attempts: 0,
         lastError: null,
         nextAttemptAt: new Date(),
-        processedAt: null,
+        maxAttempts: 5,
+        sentAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -192,7 +194,8 @@ describe("Applicant and Organization Notifications (Unit)", () => {
         attempts: 0,
         lastError: null,
         nextAttemptAt: new Date(),
-        processedAt: null,
+        maxAttempts: 5,
+        sentAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -234,7 +237,8 @@ describe("Applicant and Organization Notifications (Unit)", () => {
         attempts: 0,
         lastError: null,
         nextAttemptAt: new Date(),
-        processedAt: null,
+        maxAttempts: 5,
+        sentAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       });
