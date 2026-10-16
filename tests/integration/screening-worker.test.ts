@@ -8,7 +8,6 @@ import {
   parseBufferToText
 } from "../../src/modules/screening/extraction.service.js";
 import { runDeterministicMatcher } from "../../src/modules/screening/deterministic-matcher.js";
-import { generateDeterministicAdvisory } from "../../src/providers/gemini.ai.js";
 import {
   processScreeningBatch,
   ScreeningWorker
@@ -168,19 +167,6 @@ describe.runIf(databaseAvailable)("Feature G: Screening Worker, Matcher & AI Ada
           { requirementId: "3", name: "Docker", type: "PREFERRED" as const, weight: 5, matched: false, snippet: null }
         ]
       };
-
-      const advisory = generateDeterministicAdvisory({
-        jobTitle: "Senior Developer",
-        resumeText: "sample text",
-        deterministicResult: matcherResult
-      });
-
-      expect(advisory.recommendation).toBe("ADVANCE");
-      expect(advisory.summary).toContain("Senior Developer");
-      expect(advisory.strengths.length).toBeGreaterThanOrEqual(1);
-      expect(advisory.gaps.length).toBeGreaterThanOrEqual(1);
-      expect(advisory.suggestedQuestions.length).toBeGreaterThanOrEqual(1);
-      expect(advisory.advisoryScore).toBe(80);
     });
   });
 

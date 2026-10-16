@@ -57,6 +57,7 @@ export const removeTestUser = async (userId: string, organizationIds: string[] =
       await prisma.screeningRun.deleteMany({ where: { application: { resumeId: { in: resumeIds } } } });
       await prisma.application.deleteMany({ where: { resumeId: { in: resumeIds } } });
       await prisma.resumeProfile.deleteMany({ where: { resumeId: { in: resumeIds } } });
+      await prisma.resumeChunk.deleteMany({ where: { resumeId: { in: resumeIds } } });
       await prisma.resume.deleteMany({ where: { id: { in: resumeIds } } });
     }
     await prisma.candidateProfile.deleteMany({ where: { userId } });
