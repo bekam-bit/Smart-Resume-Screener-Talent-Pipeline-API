@@ -239,8 +239,8 @@ async function main() {
             {
               status: "COMPLETE",
               score: 85.0,
-              provider: "google-gemini",
-              model: "gemini-1.5-flash",
+              provider: "openrouter-rag",
+              model: "google/gemma-4-26b-a4b-it:free",
               promptVersion: "1.0.0",
               scoreBreakdown: {
                 deterministicScore: 80,

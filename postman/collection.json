@@ -1,214 +1,2173 @@
 {
   "info": {
-    "name": "Smart Resume Screener & Talent Pipeline API",
-    "description": "Production-ready Postman collection covering Authentication, Organizations, Jobs, Resumes, Applications, Screening Runs, and Audit Logs.",
+    "name": "Smart Resume Screener & Talent Pipeline API - Complete Test Suite",
+    "_postman_id": "7d9b23f1-482a-493e-89c0-9a5c4e9f7801",
+    "description": "Comprehensive test suite for Thunder Client and Postman covering all routes across Health, Auth, Profiles, Resumes, Organizations, Jobs, Applications, AI Screening (RAG), Shortlisting, and Audit Logs — with both Happy Path and Error Handling scenarios.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
-    { "key": "accessToken", "value": "" },
-    { "key": "organizationId", "value": "" },
-    { "key": "jobId", "value": "" },
-    { "key": "resumeId", "value": "" },
-    { "key": "applicationId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "verificationToken",
+      "value": ""
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    },
+    {
+      "key": "organizationId",
+      "value": ""
+    },
+    {
+      "key": "memberUserId",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "requirementId",
+      "value": ""
+    },
+    {
+      "key": "resumeId",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    }
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "01. Health Probes",
       "item": [
         {
-          "name": "Liveness Probe",
+          "name": "[Happy Path] Liveness Probe",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/health/live"
+            "url": "{{baseUrl}}/health/live",
+            "description": "Checks if the process is running. Expected status: 200 OK."
           }
         },
         {
-          "name": "Readiness Probe",
+          "name": "[Happy Path] Readiness Probe",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/health/ready"
+            "url": "{{baseUrl}}/health/ready",
+            "description": "Checks database connectivity. Expected status: 200 OK (or 503 if database unreachable)."
           }
         }
       ]
     },
     {
-      "name": "Authentication",
+      "name": "02. Authentication & Sessions",
       "item": [
         {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/auth/register",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@talentstream.test\",\n  \"password\": \"Password123!\",\n  \"name\": \"Sarah Admin\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Login (Admin)",
+          "name": "[Happy Path] Register New User",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "const res = pm.response.json();",
-                  "if (res.tokens && res.tokens.accessToken) {",
-                  "  pm.collectionVariables.set('accessToken', res.tokens.accessToken);",
+                  "if (res.verificationToken) {",
+                  "  pm.collectionVariables.set('verificationToken', res.verificationToken);",
+                  "  pm.environment.set('verificationToken', res.verificationToken);",
                   "}"
-                ],
-                "type": "text/javascript"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newcandidate@talentstream.test\",\n  \"password\": \"SecurePassword123!\",\n  \"name\": \"New Candidate\"\n}"
+            },
+            "description": "Registers a new user account. In non-production/mock email mode, returns verificationToken."
+          }
+        },
+        {
+          "name": "[Error] Register - Duplicate Email (409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@talentstream.test\",\n  \"password\": \"SecurePassword123!\",\n  \"name\": \"Duplicate User\"\n}"
+            },
+            "description": "Fails with 409 EMAIL_IN_USE because email is already registered."
+          }
+        },
+        {
+          "name": "[Error] Register - Password Too Short <12 chars (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"shortpass@talentstream.test\",\n  \"password\": \"short\",\n  \"name\": \"Short Pass\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: password must be at least 12 characters."
+          }
+        },
+        {
+          "name": "[Error] Register - Invalid Email Format (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"SecurePassword123!\",\n  \"name\": \"Bad Email\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: invalid email address."
+          }
+        },
+        {
+          "name": "[Happy Path] Verify Email",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}"
+            },
+            "description": "Verifies the user email using verificationToken captured upon registration."
+          }
+        },
+        {
+          "name": "[Error] Verify Email - Invalid / Expired Token (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"0000000000000000000000000000000000000000000000000000000000000000\"\n}"
+            },
+            "description": "Fails with 400 INVALID_VERIFICATION_TOKEN."
+          }
+        },
+        {
+          "name": "[Happy Path] Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email/resend",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newcandidate@talentstream.test\"\n}"
+            },
+            "description": "Requests resending the verification email. Returns 200 OK."
+          }
+        },
+        {
+          "name": "[Error] Resend Verification - Invalid Email (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/verify-email/resend",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bad-email-format\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR."
+          }
+        },
+        {
+          "name": "[Happy Path] Forgot Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.resetToken) {",
+                  "  pm.collectionVariables.set('resetToken', res.resetToken);",
+                  "  pm.environment.set('resetToken', res.resetToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/password/forgot",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@talentstream.test\"\n}"
+            },
+            "description": "Initiates password reset flow. Returns resetToken in non-production environments."
+          }
+        },
+        {
+          "name": "[Error] Forgot Password - Invalid Email (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/password/forgot",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid-email-string\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR."
+          }
+        },
+        {
+          "name": "[Happy Path] Reset Password",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/password/reset",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"NewPassword123!\"\n}"
+            },
+            "description": "Resets password using resetToken."
+          }
+        },
+        {
+          "name": "[Error] Reset Password - Short Password <12 chars (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/password/reset",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"0000000000000000000000000000000000000000000000000000000000000000\",\n  \"password\": \"tiny\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR."
+          }
+        },
+        {
+          "name": "[Happy Path] Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const token = res.accessToken || (res.tokens && res.tokens.accessToken);",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('accessToken', token);",
+                  "  pm.environment.set('accessToken', token);",
+                  "}",
+                  "const cookies = pm.response.headers.get('Set-Cookie');",
+                  "if (cookies) {",
+                  "  const match = cookies.match(/refresh_token=([^;]+)/);",
+                  "  if (match) {",
+                  "    pm.collectionVariables.set('refreshToken', match[1]);",
+                  "    pm.environment.set('refreshToken', match[1]);",
+                  "  }",
+                  "}"
+                ]
               }
             }
           ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/auth/login",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@talentstream.test\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "description": "Logs in as Admin user, captures accessToken and refresh_token cookie."
+          }
+        },
+        {
+          "name": "[Happy Path] Login (Recruiter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const token = res.accessToken || (res.tokens && res.tokens.accessToken);",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('accessToken', token);",
+                  "  pm.environment.set('accessToken', token);",
+                  "}"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter@talentstream.test\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "description": "Logs in as Recruiter user and updates accessToken."
           }
         },
         {
-          "name": "Refresh Access Token",
+          "name": "[Happy Path] Login (Candidate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const token = res.accessToken || (res.tokens && res.tokens.accessToken);",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('accessToken', token);",
+                  "  pm.environment.set('accessToken', token);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/auth/refresh"
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"candidate@talentstream.test\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "description": "Logs in as Candidate user and updates accessToken."
           }
         },
         {
-          "name": "Logout",
+          "name": "[Error] Login - Wrong Password (401)",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/auth/logout"
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@talentstream.test\",\n  \"password\": \"WrongPassword999!\"\n}"
+            },
+            "description": "Fails with 401 INVALID_CREDENTIALS."
+          }
+        },
+        {
+          "name": "[Error] Login - Missing Password Field (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@talentstream.test\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: password is required."
+          }
+        },
+        {
+          "name": "[Happy Path] Refresh Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.accessToken);",
+                  "  pm.environment.set('accessToken', res.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/refresh",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refresh_token={{refreshToken}}"
+              }
+            ],
+            "description": "Rotates the refresh session and returns a fresh access token."
+          }
+        },
+        {
+          "name": "[Error] Refresh - Missing Cookie (401)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/refresh",
+            "header": [],
+            "description": "Fails with 401 MISSING_REFRESH_TOKEN when refresh_token cookie is absent."
+          }
+        },
+        {
+          "name": "[Happy Path] Logout Single Session",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "refresh_token={{refreshToken}}"
+              }
+            ],
+            "description": "Revokes current refresh session and clears cookie. Returns 204 No Content."
+          }
+        },
+        {
+          "name": "[Happy Path] Logout All Sessions",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout-all",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Revokes all refresh sessions for the authenticated user. Returns 204 No Content."
+          }
+        },
+        {
+          "name": "[Error] Logout All - Unauthenticated (401)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout-all",
+            "header": [],
+            "description": "Fails with 401 UNAUTHENTICATED."
           }
         }
       ]
     },
     {
-      "name": "Organizations",
+      "name": "03. Profile & Resumes (Candidate /me)",
       "item": [
         {
-          "name": "List Organizations",
+          "name": "[Happy Path] Get Candidate Profile",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/organizations",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+            "url": "{{baseUrl}}/me/profile",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns profile of authenticated candidate. Expected: 200 OK."
           }
         },
         {
-          "name": "Create Organization",
+          "name": "[Error] Get Profile - Unauthenticated (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/me/profile",
+            "header": [],
+            "description": "Fails with 401 UNAUTHENTICATED without Bearer token."
+          }
+        },
+        {
+          "name": "[Happy Path] Update Candidate Profile",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/me/profile",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alex Updated Candidate\",\n  \"phone\": \"+1-555-0199\",\n  \"portfolioUrl\": \"https://alex-portfolio.dev\",\n  \"location\": \"San Francisco, CA\"\n}"
+            },
+            "description": "Updates candidate profile fields. Expected: 200 OK."
+          }
+        },
+        {
+          "name": "[Error] Update Profile - Empty Body (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/me/profile",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: Provide at least one field to update."
+          }
+        },
+        {
+          "name": "[Error] Update Profile - Invalid URL (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/me/profile",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"portfolioUrl\": \"not-a-valid-url\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: must be a valid URL."
+          }
+        },
+        {
+          "name": "[Happy Path] Upload Resume (PDF / DOCX)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.resume && res.resume.id) {",
+                  "  pm.collectionVariables.set('resumeId', res.resume.id);",
+                  "  pm.environment.set('resumeId', res.resume.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/me/resumes",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "description": "Select a PDF or DOCX file to upload."
+                }
+              ]
+            },
+            "description": "Uploads a resume file. Saves resumeId into variables upon 201 Created."
+          }
+        },
+        {
+          "name": "[Error] Upload Resume - Missing File (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/me/resumes",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "description": "Fails with 400 FILE_REQUIRED."
+          }
+        },
+        {
+          "name": "[Happy Path] List My Resumes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) {",
+                  "  pm.collectionVariables.set('resumeId', res.data[0].id);",
+                  "  pm.environment.set('resumeId', res.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/me/resumes?page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists uploaded resumes for the candidate."
+          }
+        },
+        {
+          "name": "[Happy Path] Get Specific Resume Access & URL",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/me/resumes/{{resumeId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Retrieves resume metadata and temporary download URL."
+          }
+        },
+        {
+          "name": "[Error] Get Resume - Invalid UUID (400)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/me/resumes/not-a-uuid",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 400 VALIDATION_ERROR: invalid UUID."
+          }
+        },
+        {
+          "name": "[Error] Get Resume - Non-existent UUID (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/me/resumes/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 RESUME_NOT_FOUND."
+          }
+        },
+        {
+          "name": "[Happy Path] Delete Resume",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/me/resumes/{{resumeId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Deletes a resume by ID. Returns 204 No Content."
+          }
+        },
+        {
+          "name": "[Error] Delete Resume - Non-existent UUID (404)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/me/resumes/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 RESUME_NOT_FOUND."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Organizations & Member Management",
+      "item": [
+        {
+          "name": "[Happy Path] Create Organization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.organization && res.organization.id) {",
+                  "  pm.collectionVariables.set('organizationId', res.organization.id);",
+                  "  pm.environment.set('organizationId', res.organization.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/organizations",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Technologies\",\n  \"slug\": \"acme-tech\"\n}"
+              "raw": "{\n  \"name\": \"CloudScale Innovations\",\n  \"slug\": \"cloudscale-innovations\"\n}"
+            },
+            "description": "Creates a new organization and saves organizationId. Expected: 201 Created."
+          }
+        },
+        {
+          "name": "[Error] Create Organization - Invalid Slug (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad Slug Org\",\n  \"slug\": \"Bad_Slug with UPPER and spaces!\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: slug must be lowercase separated by single hyphens."
+          }
+        },
+        {
+          "name": "[Error] Create Organization - Missing Name (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"only-slug-org\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: name is required."
+          }
+        },
+        {
+          "name": "[Error] Create Organization - Duplicate Slug (409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Clone\",\n  \"slug\": \"acme-tech\"\n}"
+            },
+            "description": "Fails with 409 SLUG_IN_USE because slug is already claimed."
+          }
+        },
+        {
+          "name": "[Happy Path] Get Organization Details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns organization metadata if requester is an active member."
+          }
+        },
+        {
+          "name": "[Error] Get Organization - Invalid UUID (400)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/invalid-uuid",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 400 VALIDATION_ERROR."
+          }
+        },
+        {
+          "name": "[Error] Get Organization - Non-existent UUID (404/403)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 or 403 Forbidden."
+          }
+        },
+        {
+          "name": "[Happy Path] Update Organization",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CloudScale Innovations Global\"\n}"
+            },
+            "description": "Updates organization name or slug. Expected: 200 OK."
+          }
+        },
+        {
+          "name": "[Error] Update Organization - Empty Payload (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: Provide at least one field to update."
+          }
+        },
+        {
+          "name": "[Happy Path] List Organization Members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) {",
+                  "  pm.collectionVariables.set('memberUserId', res.data[0].userId);",
+                  "  pm.environment.set('memberUserId', res.data[0].userId);",
+                  "}"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members?page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists members of the organization with roles and statuses."
+          }
+        },
+        {
+          "name": "[Happy Path] Add Member to Organization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.member && res.member.userId) {",
+                  "  pm.collectionVariables.set('memberUserId', res.member.userId);",
+                  "  pm.environment.set('memberUserId', res.member.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter2@talentstream.test\",\n  \"role\": \"RECRUITER\"\n}"
+            },
+            "description": "Invites or adds a member to the organization. Expected: 201 Created."
+          }
+        },
+        {
+          "name": "[Error] Add Member - Invalid Role (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalidrole@test.com\",\n  \"role\": \"SUPER_ADMIN\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: role must be ADMIN or RECRUITER."
+          }
+        },
+        {
+          "name": "[Happy Path] Update Member Role and Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members/{{memberUserId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "description": "Updates membership role or status. Expected: 200 OK."
+          }
+        },
+        {
+          "name": "[Error] Update Member - Empty Payload (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members/{{memberUserId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: Provide role and/or status."
+          }
+        },
+        {
+          "name": "[Happy Path] Remove Member",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members/{{memberUserId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Removes a member from the organization. Expected: 204 No Content."
+          }
+        },
+        {
+          "name": "[Error] Remove Member - Non-existent Member (404)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/members/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 NOT_FOUND."
           }
         }
       ]
     },
     {
-      "name": "Jobs",
+      "name": "05. Jobs & Requirements",
       "item": [
         {
-          "name": "Search Public Jobs",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/jobs?q=TypeScript",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs"],
-              "query": [{ "key": "q", "value": "TypeScript" }]
+          "name": "[Happy Path] Create Org Job with Initial Requirements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.job && res.job.id) {",
+                  "  pm.collectionVariables.set('jobId', res.job.id);",
+                  "  pm.environment.set('jobId', res.job.id);",
+                  "}"
+                ]
+              }
             }
-          }
-        },
-        {
-          "name": "Create Job",
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Senior Full Stack Engineer\",\n  \"description\": \"Build resilient recruitment pipelines with TypeScript and PostgreSQL.\"\n}"
-            }
+              "raw": "{\n  \"title\": \"Staff Platform Engineer\",\n  \"description\": \"Lead our core distributed cloud infrastructure, microservices, and high-throughput applicant ingestion pipelines using Go, TypeScript, and Kubernetes.\",\n  \"location\": \"San Francisco, CA\",\n  \"remotePolicy\": \"HYBRID\",\n  \"employmentType\": \"FULL_TIME\",\n  \"requirements\": [\n    {\n      \"name\": \"Distributed Systems Architecture\",\n      \"description\": \"7+ years scaling high-availability microservices\",\n      \"type\": \"REQUIRED\",\n      \"weight\": 10\n    },\n    {\n      \"name\": \"Kubernetes & Terraform\",\n      \"description\": \"Hands-on cloud orchestration and infrastructure as code\",\n      \"type\": \"PREFERRED\",\n      \"weight\": 8\n    }\n  ]\n}"
+            },
+            "description": "Creates a draft job posting with embedded requirements. Saves jobId. Expected: 201 Created."
           }
         },
         {
-          "name": "Publish Job",
+          "name": "[Error] Create Job - Description Too Short <20 chars (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Short Description Job\",\n  \"description\": \"Too short.\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: description must be at least 20 characters."
+          }
+        },
+        {
+          "name": "[Error] Create Job - Missing Title (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"A valid length description without a title provided at all.\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: title is required."
+          }
+        },
+        {
+          "name": "[Happy Path] List Organization Jobs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs?page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists all jobs for this organization, including DRAFT and CLOSED."
+          }
+        },
+        {
+          "name": "[Happy Path] Get Organization Job Details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Gets detailed job information including requirements list."
+          }
+        },
+        {
+          "name": "[Happy Path] Update Job Details",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Staff Distributed Systems Engineer\",\n  \"remotePolicy\": \"REMOTE\"\n}"
+            },
+            "description": "Updates draft job attributes."
+          }
+        },
+        {
+          "name": "[Error] Update Job - Empty Body (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: Provide at least one field to update."
+          }
+        },
+        {
+          "name": "[Happy Path] Add Standalone Job Requirement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.requirement && res.requirement.id) {",
+                  "  pm.collectionVariables.set('requirementId', res.requirement.id);",
+                  "  pm.environment.set('requirementId', res.requirement.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/requirements",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"PostgreSQL & Redis Caching\",\n  \"description\": \"Experience with complex relational queries and cache eviction patterns\",\n  \"type\": \"REQUIRED\",\n  \"weight\": 9\n}"
+            },
+            "description": "Adds a requirement to the job. Saves requirementId. Expected: 201 Created."
+          }
+        },
+        {
+          "name": "[Error] Add Requirement - Invalid Type (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/requirements",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad Type Requirement\",\n  \"type\": \"NICE_TO_HAVE\",\n  \"weight\": 5\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: type must be REQUIRED or PREFERRED."
+          }
+        },
+        {
+          "name": "[Error] Add Requirement - Weight > 100 (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/requirements",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"High Weight\",\n  \"type\": \"REQUIRED\",\n  \"weight\": 999\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: weight must be <= 100."
+          }
+        },
+        {
+          "name": "[Happy Path] Update Job Requirement",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/requirements/{{requirementId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weight\": 10,\n  \"type\": \"REQUIRED\"\n}"
+            },
+            "description": "Updates an existing requirement. Expected: 200 OK."
+          }
+        },
+        {
+          "name": "[Happy Path] Remove Job Requirement",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/requirements/{{requirementId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Deletes a requirement from the job. Expected: 204 No Content."
+          }
+        },
+        {
+          "name": "[Happy Path] Publish Job",
           "request": {
             "method": "PATCH",
             "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/status",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "description": "Publishes the job posting so candidates can discover and apply to it."
+          }
+        },
+        {
+          "name": "[Error] Change Job Status - Invalid Status (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELETED\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: must be DRAFT, PUBLISHED, PAUSED, or CLOSED."
+          }
+        },
+        {
+          "name": "[Happy Path] Public Jobs Board - Search & List",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length > 0 && !pm.collectionVariables.get('jobId')) {",
+                  "  pm.collectionVariables.set('jobId', res.data[0].id);",
+                  "  pm.environment.set('jobId', res.data[0].id);",
+                  "}"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs?q=Engineer&page=1&pageSize=10",
+            "header": [],
+            "description": "Public job board search. No authentication required."
+          }
+        },
+        {
+          "name": "[Happy Path] Public Jobs Board - Get Job Details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/{{jobId}}",
+            "header": [],
+            "description": "Public job details by ID. No authentication required."
+          }
+        },
+        {
+          "name": "[Error] Public Job Details - Non-existent Job ID (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/00000000-0000-0000-0000-000000000000",
+            "header": [],
+            "description": "Fails with 404 JOB_NOT_FOUND."
+          }
+        },
+        {
+          "name": "[Happy Path] Delete Job Posting",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Deletes a job posting and associated requirements. Expected: 204 No Content."
           }
         }
       ]
     },
     {
-      "name": "Applications & Screening",
+      "name": "06. Candidate Job Applications",
       "item": [
         {
-          "name": "Apply to Job",
+          "name": "[Happy Path] Apply to Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.application && res.application.id) {",
+                  "  pm.collectionVariables.set('applicationId', res.application.id);",
+                  "  pm.environment.set('applicationId', res.application.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/jobs/{{jobId}}/applications",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resumeId\": \"{{resumeId}}\",\n  \"coverLetter\": \"Excited to apply for this role!\"\n}"
-            }
+              "raw": "{\n  \"resumeId\": \"{{resumeId}}\",\n  \"coverLetter\": \"I have 8+ years building enterprise microservices and distributed data pipelines with TypeScript and PostgreSQL. Eager to contribute to your engineering culture!\"\n}"
+            },
+            "description": "Candidate submits an application with an uploaded resume. Saves applicationId. Expected: 201 Created."
           }
         },
         {
-          "name": "Trigger Screening Run",
+          "name": "[Error] Apply to Job - Non-existent Resume UUID (404)",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screen",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+            "url": "{{baseUrl}}/jobs/{{jobId}}/applications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resumeId\": \"00000000-0000-0000-0000-000000000000\",\n  \"coverLetter\": \"Hello!\"\n}"
+            },
+            "description": "Fails with 404 RESUME_NOT_FOUND."
           }
         },
         {
-          "name": "List Screening Runs",
+          "name": "[Error] Apply to Job - Duplicate Active Application (409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/jobs/{{jobId}}/applications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resumeId\": \"{{resumeId}}\",\n  \"coverLetter\": \"Applying again.\"\n}"
+            },
+            "description": "Fails with 409 ALREADY_APPLIED when candidate already has an active application."
+          }
+        },
+        {
+          "name": "[Happy Path] List My Submitted Applications",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screening-runs",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+            "url": "{{baseUrl}}/applications?page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists all applications submitted by the logged-in candidate."
+          }
+        },
+        {
+          "name": "[Happy Path] Get My Application Details",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications/{{applicationId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns candidate view of their own application status."
+          }
+        },
+        {
+          "name": "[Error] Get My Application - Non-existent UUID (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 APPLICATION_NOT_FOUND."
+          }
+        },
+        {
+          "name": "[Happy Path] Withdraw Application",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{applicationId}}/withdraw",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Candidate withdraws their pending application. Status transitions to WITHDRAWN."
+          }
+        },
+        {
+          "name": "[Error] Withdraw Application - Already Withdrawn (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/applications/{{applicationId}}/withdraw",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 400 when attempting to withdraw an already withdrawn/closed application."
           }
         }
       ]
     },
     {
-      "name": "Audit Logs",
+      "name": "07. Recruiter Pipeline & Application Review",
       "item": [
         {
-          "name": "List Organization Audit Logs",
+          "name": "[Happy Path] List Job Applications (Recruiter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) {",
+                  "  pm.collectionVariables.set('applicationId', res.data[0].id);",
+                  "  pm.environment.set('applicationId', res.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/organizations/{{organizationId}}/audit-logs",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/applications?page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Recruiter lists all applications for a specific job."
+          }
+        },
+        {
+          "name": "[Happy Path] Get Org Application by Recruiter",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fetches full application details, candidate details, resume profile, and screening runs."
+          }
+        },
+        {
+          "name": "[Happy Path] Advance Application Status to SHORTLISTED",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHORTLISTED\",\n  \"candidateVisible\": true\n}"
+            },
+            "description": "Advances candidate in the pipeline. Status options: SCREENING, IN_REVIEW, SHORTLISTED, INTERVIEW, OFFER, HIRED, REJECTED."
+          }
+        },
+        {
+          "name": "[Happy Path] Reject Application with Required Reason",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REJECTED\",\n  \"reason\": \"Seeking more direct experience with Kafka and distributed streaming pipelines.\",\n  \"candidateVisible\": true\n}"
+            },
+            "description": "Rejects application with a mandatory reason."
+          }
+        },
+        {
+          "name": "[Error] Reject Application - Missing Reason (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REJECTED\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: A reason is required when rejecting an application."
+          }
+        },
+        {
+          "name": "[Error] Advance Application - Invalid Status 'PENDING' (400)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/status",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PENDING\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: invalid recruiter status."
+          }
+        },
+        {
+          "name": "[Happy Path] Add Internal Recruiter Note",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/notes",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Strong match on TypeScript and database internals. Scheduled for round 1 architectural interview.\"\n}"
+            },
+            "description": "Appends an internal note visible only to organization members. Expected: 201 Created."
+          }
+        },
+        {
+          "name": "[Error] Add Note - Empty Body (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/notes",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: body cannot be empty."
+          }
+        },
+        {
+          "name": "[Happy Path] List Application Events & Timeline",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/events",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists all timeline events (status transitions, notes, screenings) for the application."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. AI Screening & Shortlisting (RAG)",
+      "item": [
+        {
+          "name": "[Happy Path] Trigger AI Screening Run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('runId', res.data.id);",
+                  "  pm.environment.set('runId', res.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screen",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Triggers async AI screening run against job requirements. Returns 202 Accepted and saves runId."
+          }
+        },
+        {
+          "name": "[Error] Trigger Screening - Non-existent Application (404)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/00000000-0000-0000-0000-000000000000/screen",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 APPLICATION_NOT_FOUND."
+          }
+        },
+        {
+          "name": "[Happy Path] List Screening Runs for Application",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screening-runs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists all historical screening runs for this application."
+          }
+        },
+        {
+          "name": "[Happy Path] Get Specific Screening Run Result",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screening-runs/{{runId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns screening results, overall score, requirement scores, and reasoning."
+          }
+        },
+        {
+          "name": "[Error] Get Screening Run - Non-existent Run ID (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/screening-runs/00000000-0000-0000-0000-000000000000",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 404 SCREENING_RUN_NOT_FOUND."
+          }
+        },
+        {
+          "name": "[Happy Path] Ask Question About Resume (RAG)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/ask",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Does the candidate demonstrate hands-on production experience with Docker container lifecycle and PostgreSQL indexing?\"\n}"
+            },
+            "description": "Uses semantic chunk retrieval and AI to answer a natural language question about the candidate's resume."
+          }
+        },
+        {
+          "name": "[Error] Ask Question - Question Too Short <3 chars (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/applications/{{applicationId}}/ask",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"hi\"\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: question must be at least 3 characters."
+          }
+        },
+        {
+          "name": "[Happy Path] Compare Job Candidates (GET)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/candidates/compare?topCount=5&minScore=60",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Ranks and compares all screened candidates for the job with an executive AI summary."
+          }
+        },
+        {
+          "name": "[Happy Path] Batch Shortlist Top Candidates (POST)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/{{jobId}}/shortlist",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topCount\": 3,\n  \"minScore\": 70,\n  \"autoAdvance\": false,\n  \"generateSummary\": true\n}"
+            },
+            "description": "Evaluates candidates and optionally auto-advances top matches to SHORTLISTED."
+          }
+        },
+        {
+          "name": "[Error] Shortlist - Invalid Job UUID (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/jobs/not-a-valid-uuid/shortlist",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topCount\": 5\n}"
+            },
+            "description": "Fails with 400 VALIDATION_ERROR: invalid UUID."
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Audit Logs",
+      "item": [
+        {
+          "name": "[Happy Path] List Organization Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/audit-logs?page=1&pageSize=20",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Lists paginated audit events for security and compliance."
+          }
+        },
+        {
+          "name": "[Happy Path] List Audit Logs with Filters",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/audit-logs?resourceType=JOB&action=JOB_CREATED&page=1&pageSize=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Filters audit trail by resourceType and action."
+          }
+        },
+        {
+          "name": "[Error] List Audit Logs - Invalid Date Format (400)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}/audit-logs?startDate=not-an-iso-date",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 400 VALIDATION_ERROR: invalid datetime format."
+          }
+        },
+        {
+          "name": "[Error] List Audit Logs - Non-member Org Access (403)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/00000000-0000-0000-0000-000000000000/audit-logs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Fails with 403 Forbidden because user does not have permission in this organization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Global & Protocol Error Handling",
+      "item": [
+        {
+          "name": "[Error] Route Not Found (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/non-existent-endpoint-route",
+            "header": [],
+            "description": "Tests 404 handler for unrecognized routes."
+          }
+        },
+        {
+          "name": "[Error] Malformed JSON Syntax (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"admin@talentstream.test\", }"
+            },
+            "description": "Tests body parser error handling when client sends invalid JSON syntax (trailing comma)."
+          }
+        },
+        {
+          "name": "[Error] Protected Route Without Auth (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/organizations/{{organizationId}}",
+            "header": [],
+            "description": "Tests authentication guard when Authorization header is completely absent."
           }
         }
       ]

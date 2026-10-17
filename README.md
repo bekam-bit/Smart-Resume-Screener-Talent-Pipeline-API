@@ -28,7 +28,7 @@ Production-grade, backend-first REST API for an explainable, recruiter-controlle
          ▼                      ▼                          ▼                             ▼
 ┌────────────────┐     ┌─────────────────┐       ┌────────────────────┐       ┌────────────────────┐
 │ Organizations  │     │ Jobs & Pipeline │       │ Profile & Resumes  │       │ Screening Engine   │
-│ & Memberships  │     │ Applications    │       │ S3 Private Storage │       │ Matcher & Gemini   │
+│ & Memberships  │     │ Applications    │       │ S3 Private Storage │       │ Matcher & OpenRouter│
 └────────┬───────┘     └────────┬────────┘       └─────────┬──────────┘       └──────────┬─────────┘
          │                      │                          │                             │
          └──────────────────────┼──────────────────────────┼─────────────────────────────┘
@@ -45,7 +45,7 @@ Production-grade, backend-first REST API for an explainable, recruiter-controlle
 │     Email Worker (Outbox)         │       │     Screening Worker              │
 │ - Transactional Outbox Pattern    │       │ - Buffer text extraction (unpdf)  │
 │ - Exponential backoff retry       │       │ - Deterministic requirement score │
-│ - Resend Email Provider           │       │ - Gemini AI advisory synthesis    │
+│ - Resend Email Provider           │       │ - OpenRouter RAG advisory synthesis│
 └───────────────────────────────────┘       └───────────────────────────────────┘
 ```
 
@@ -90,7 +90,7 @@ Production-grade, backend-first REST API for an explainable, recruiter-controlle
   - Text extraction from binary buffers using `unpdf` (PDF) and `mammoth` (DOCX).
   - Extraction caching in `ResumeProfile` to avoid repeated parsing.
   - Deterministic matcher: keyword/phrase boundary evaluation, requirement weights, and context snippet extraction.
-  - Explainable Google Gemini AI adapter: structured JSON output with `summary`, `strengths`, `gaps`, `recommendation`, and `suggestedQuestions`.
+  - Grounded OpenRouter RAG AI adapter: structured JSON output with `summary`, `strengths`, `gaps`, `recommendation`, and `suggestedQuestions`.
   - Resilient deterministic advisory fallback if external AI APIs are offline or rate-limited.
   - Background `ScreeningWorker` processing queued screening runs and advancing applications to `IN_REVIEW`.
 
@@ -195,8 +195,10 @@ FRONTEND_APP_URL="http://localhost:4000"
 RESEND_API_KEY="re_..."
 EMAIL_FROM="Smart Resume Screener <onboarding@resend.dev>"
 
-# AI Advisory Screening (Google Gemini)
-GEMINI_API_KEY="AIzaSy..."
+# AI Advisory Screening & Neural Embeddings (OpenRouter)
+OPENROUTER_API_KEY="sk-or-v1-..."
+OPENROUTER_TEXT_MODEL="google/gemma-4-26b-a4b-it:free"
+OPENROUTER_EMBED_MODEL="nvidia/llama-nemotron-embed-vl-1b-v2:free"
 
 # Object Storage (S3-compatible endpoint)
 AWS_ENDPOINT_URL_S3="https://...s3.endpoint"

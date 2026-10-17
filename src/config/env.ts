@@ -35,7 +35,6 @@ const envSchema = z.object({
   MAX_RESUME_SIZE_BYTES: z.coerce.number().int().positive().default(5_242_880),
 
   // ── AI & Screening Worker ──
-  GEMINI_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_BASE_URL: z.string().default("https://openrouter.ai/api/v1"),
   OPENROUTER_TEXT_MODEL: z.string().default("google/gemma-4-26b-a4b-it:free"),
