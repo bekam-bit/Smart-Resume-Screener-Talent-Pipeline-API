@@ -1,11 +1,36 @@
+import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { env } from "../config/env.js";
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : undefined;
 
+const mailtrapTransport =
+  env.MAILTRAP_USER && env.MAILTRAP_PASS
+    ? nodemailer.createTransport({
+        host: env.MAILTRAP_HOST,
+        port: env.MAILTRAP_PORT,
+        auth: {
+          user: env.MAILTRAP_USER,
+          pass: env.MAILTRAP_PASS
+        }
+      })
+    : undefined;
+
 export const sendEmail = async (input: { to: string; subject: string; html: string; text: string }) => {
+  // If Mailtrap is configured, send via Mailtrap Sandbox (works for any recipient email)
+  if (mailtrapTransport) {
+    await mailtrapTransport.sendMail({
+      from: env.EMAIL_FROM,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text
+    });
+    return;
+  }
+
   if (!resend) {
-    throw new Error("RESEND_API_KEY is not configured");
+    throw new Error("Neither MAILTRAP nor RESEND_API_KEY is configured");
   }
 
   const result = await resend.emails.send({

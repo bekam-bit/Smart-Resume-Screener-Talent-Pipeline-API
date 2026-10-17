@@ -21,6 +21,12 @@ const envSchema = z.object({
   EMAIL_FROM: emailFromSchema,
   FRONTEND_APP_URL: z.string(),
 
+  // ── Mailtrap Sandbox (Development email testing) ──
+  MAILTRAP_HOST: z.string().default("sandbox.smtp.mailtrap.io"),
+  MAILTRAP_PORT: z.coerce.number().int().positive().default(587),
+  MAILTRAP_USER: z.string().optional(),
+  MAILTRAP_PASS: z.string().optional(),
+
   // ── Object storage (Neon-compatible S3 endpoint) ──
   // The AWS SDK also reads these from the environment natively; declared here
   // so their presence/shape is validated at boot and reused by the provider.
